@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Objection Practice - Bare Loop Test</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 640px;
+      margin: 40px auto;
+      padding: 0 16px;
+      color: #1a1a1a;
+    }
+    h1 { font-size: 1.3rem; }
+    #status {
+      font-size: 0.9rem;
+      color: #555;
+      margin-bottom: 16px;
+    }
+    button {
+      font-size: 1rem;
+      padding: 10px 20px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #1a1a1a;
+      color: white;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.stop { background: #a11; border-color: #a11; }
+    #transcript {
+      margin-top: 24px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      height: 320px;
+      overflow-y: auto;
+      background: #fafafa;
+    }
+    .line { margin-bottom: 8px; line-height: 1.4; }
+    .line.you { color: #0b5; }
+    .line.prospect { color: #16c; }
+    .line.tag { color: #a60; font-size: 0.85rem; font-style: italic; }
+    .line b { display: inline-block; min-width: 70px; }
+
+    #scorecard {
+      margin-top: 24px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      background: #fff;
+    }
+    .sc-summary { margin-top: 0; line-height: 1.5; }
+    .sc-objection {
+      border-left: 4px solid #999;
+      background: #fafafa;
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+    }
+    .sc-objection.sc-handled_well { border-left-color: #0b5; }
+    .sc-objection.sc-partially_handled { border-left-color: #d90; }
+    .sc-objection.sc-fumbled { border-left-color: #c22; }
+    .sc-objection-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      color: #555;
+    }
+    .sc-prospect-line { margin-top: 6px; font-style: italic; color: #333; }
+    .sc-feedback { margin-top: 4px; line-height: 1.4; }
+    .sc-list { margin-top: 12px; }
+    .sc-list ul { margin: 4px 0 0; padding-left: 20px; }
+    .sc-list li { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Sales Objection Practice -- Bare Loop Test</h1>
+  <div id="status">idle</div>
+  <button id="toggle">Start Call</button>
+  <div id="transcript"></div>
+  <div id="scorecard" hidden></div>
+  <script src="client.js"></script>
+</body>
+</html>
