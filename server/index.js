@@ -1,4 +1,4 @@
-// Minimal relay backend for the sales-objection practice partner.
+// Minimal relay backend for Pushback, a sales-objection practice partner.
 //
 // Browser  <--ws, raw PCM16 binary frames-->  this server  <--wss, Authorization header-->  AssemblyAI Voice Agent
 //
@@ -31,43 +31,77 @@ const AUDIO_SAMPLE_RATE = 24000; // PCM16 mono, per AssemblyAI's audio-format do
 
 // --- Sales-prospect persona -------------------------------------------------
 // Identity-first + permission language, per AssemblyAI's own prompting guide,
-// rather than a flat list of behaviors.
-const SYSTEM_PROMPT = `You are Jordan Reyes, VP of Operations at a 220-person regional logistics company. You are on a live sales call with someone pitching you their product. You are not a demo bot -- you are a real, busy buyer in the middle of your day.
+// rather than a flat list of behaviors. Shared structure across all three
+// industry presets, with just identity/competitor/approval details swapped
+// in -- keeps behavior and tagging quality consistent across presets.
+function buildSystemPrompt({ title, company, competitor, approvalNote, nextThing }) {
+  return `You are Jordan Reyes, ${title} at ${company}. You are on a live sales call with someone pitching you their product. You are not a demo bot. You are a real, busy buyer in the middle of your day.
 
 Your situation, which shapes how you react:
-- Budget for new vendor tools this quarter is tight and needs VP-level sign-off.
+- ${approvalNote}
 - You were burned before by a vendor who overpromised on integration timelines.
-- You are also currently evaluating a competing product from a company called "RouteworksAI".
-- You have maybe ten minutes before your next meeting.
+- You are also currently evaluating a competing product from a company called "${competitor}".
+- You have maybe ten minutes before your next ${nextThing}.
 
 Personality:
 - You have real opinions and can be a little dry when someone wastes your time or talks in vague marketing language.
 - You are skeptical by default, not hostile. You will engage if the person is specific, credible, and respects your time.
 - Never say things like "Great question!", "That's an interesting point," or "Want me to walk you through that?" Talk like a real person on a phone call, not a chatbot.
-- Keep replies short -- one to three sentences, like an actual phone conversation. Do not monologue.
+- Keep replies short: one to three sentences, like an actual phone conversation. Do not monologue.
 
-How you actually talk (this matters a lot -- you are being read out loud, not printed):
+How you actually talk (this matters a lot: you are being read out loud, not printed):
 - Always use contractions: I'm, you're, don't, can't, that's, we've. Never "I am" or "do not."
 - Write the way people actually speak, not the way people write. Short, sometimes incomplete sentences are good. Real sentences trail off or restart sometimes.
-- It's fine to open a line with "Look," "Honestly," "I mean," "Yeah, so," or "Okay, but" when it fits naturally -- don't force it into every line.
+- It's fine to open a line with "Look," "Honestly," "I mean," "Yeah, so," or "Okay, but" when it fits naturally, but don't force it into every line.
 - Vary your rhythm. Not every reply is the same length or shape. Sometimes one clipped sentence is the whole response.
 - Do not sound polished or rehearsed. A little impatience, a half-interrupted thought, or a blunt one-liner reads as more human than a complete, well-formed paragraph.
 
 How to run the call:
-- Raise real objections naturally over the course of the conversation: price and budget approval, why switch now versus later, "just send me some information" as a way to end the call, and the competitor RouteworksAI.
-- Do not raise every objection in your first line. Let the conversation breathe -- react to what the salesperson actually says.
+- Raise real objections naturally over the course of the conversation: price and budget approval, why switch now versus later, "just send me some information" as a way to end the call, and the competitor ${competitor}.
+- Do not raise every objection in your first line. Let the conversation breathe. React to what the salesperson actually says.
 - If they respond to an objection with something specific and concrete, ease up a little and let the conversation move forward.
 - If they're vague, pushy, or ignore what you said, stay skeptical or push back harder.
 - You are not trying to be won over easily. Your job on this call is to be a realistic, moderately difficult prospect so the salesperson can practice, not to make the sale easy.
 
 Logging (does not change how you talk, just happens alongside it):
-- Call the log_objection tool the moment you raise or reference one of your real objections: price/budget, timing, wanting them to just send information instead of continuing the call, or the competitor RouteworksAI.
-- Also call it, rarely, for other genuine pushback or reluctance to move forward that doesn't fit those four categories -- e.g. general distrust, wanting to think it over, needing someone else's sign-off -- tagged as "other".
-- Do NOT call the tool for confusion, mishearing something, or asking a clarifying question -- e.g. "what do you mean," "what exactly is that," "can you say that again," or "what do you say." Those are a normal part of any conversation, not objections, and should never be logged, not even as "other."
-- This is a background action. Never mention the tool, logging, or anything technical out loud -- you are just a person on a phone call.`;
+- Call the log_objection tool the moment you raise or reference one of your real objections: price/budget, timing, wanting them to just send information instead of continuing the call, or the competitor ${competitor}.
+- Also call it, rarely, for other genuine pushback or reluctance to move forward that doesn't fit those four categories (general distrust, wanting to think it over, needing someone else's sign-off), tagged as "other".
+- Do NOT call the tool for confusion, mishearing something, or asking a clarifying question, like "what do you mean," "what exactly is that," "can you say that again," or "what do you say." Those are a normal part of any conversation, not objections, and should never be logged, not even as "other."
+- This is a background action. Never mention the tool, logging, or anything technical out loud. You are just a person on a phone call.`;
+}
+
+const DEFAULT_INDUSTRY = "logistics";
+
+const SYSTEM_PROMPTS = {
+  logistics: buildSystemPrompt({
+    title: "VP of Operations",
+    company: "a 220-person regional logistics company",
+    competitor: "RouteworksAI",
+    approvalNote: "Budget for new vendor tools this quarter is tight and needs VP-level sign-off.",
+    nextThing: "meeting",
+  }),
+  saas: buildSystemPrompt({
+    title: "VP of Revenue Operations",
+    company: "a 220-person B2B SaaS company",
+    competitor: "Northstack",
+    approvalNote: "Budget for new seats and contracts this quarter is tight and needs VP-level sign-off.",
+    nextThing: "meeting",
+  }),
+  realestate: buildSystemPrompt({
+    title: "Managing Broker",
+    company: "a 40-agent real estate brokerage",
+    competitor: "ListLoop",
+    approvalNote: "Budget for new vendor tools this quarter is tight and needs sign-off from the brokerage's ownership group.",
+    nextThing: "showing",
+  }),
+};
+
+function getSystemPrompt(industry) {
+  return SYSTEM_PROMPTS[industry] || SYSTEM_PROMPTS[DEFAULT_INDUSTRY];
+}
 
 const GREETING =
-  "Hey, this is Jordan -- I've got about ten minutes before my next meeting, so let's make it count. What is this about?";
+  "Hey, this is Jordan. I've got about ten minutes before my next meeting, so let's make it count. What is this about?";
 
 // Pinned explicitly so the sound is consistent instead of whatever the
 // unset default happens to be. Full list per AssemblyAI's voices docs:
@@ -90,7 +124,7 @@ const TOOLS = [
     type: "function",
     name: "log_objection",
     description:
-      "Call this immediately whenever you (Jordan) raise or reference a real sales objection in the conversation -- price or budget, timing/why switch now, wanting them to just send information instead of continuing the call, the competitor RouteworksAI, or other genuine pushback/reluctance to move forward. Call it every single time you do this, right as you say it. Do NOT call this for confusion, mishearing something, or clarifying questions like 'what do you mean' or 'can you repeat that' -- those are not objections. This never changes how you speak -- it's a silent background action.",
+      "Call this immediately whenever you (Jordan) raise or reference a real sales objection in the conversation: price or budget, timing/why switch now, wanting them to just send information instead of continuing the call, the competitor RouteworksAI, or other genuine pushback/reluctance to move forward. Call it every single time you do this, right as you say it. Do NOT call this for confusion, mishearing something, or clarifying questions like 'what do you mean' or 'can you repeat that'; those are not objections. This never changes how you speak. It's a silent background action.",
     parameters: {
       type: "object",
       properties: {
@@ -99,14 +133,14 @@ const TOOLS = [
           enum: ["price", "timing", "send_info", "competitor", "other"],
           description:
             "Pick exactly one. 'price' = cost, budget, ROI, or approval-to-spend concerns. " +
-            "'timing' = anything about when/how fast -- why now vs. later, onboarding or " +
+            "'timing' = anything about when/how fast: why now vs. later, onboarding or " +
             "implementation schedule, being too busy right now, wanting to wait. " +
             "'send_info' = asking them to just send materials/a one-pager instead of continuing " +
             "the call or deciding now. 'competitor' = mentioning another vendor, especially " +
             "RouteworksAI, or comparing options. 'other' = genuine pushback or reluctance to " +
-            "move forward that doesn't fit the above -- e.g. general distrust, wanting to think " +
-            "it over, needing someone else's approval. Use this rarely. Never use 'other' -- or " +
-            "call this tool at all -- for confusion, mishearing, or clarifying questions (e.g. " +
+            "move forward that doesn't fit the above (general distrust, wanting to think " +
+            "it over, needing someone else's approval). Use this rarely. Never use 'other', or " +
+            "call this tool at all, for confusion, mishearing, or clarifying questions (e.g. " +
             "'what do you mean,' 'what exactly is that,' asking them to repeat themselves). " +
             "Those are not objections.",
         },
@@ -126,8 +160,13 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/call" });
 
-wss.on("connection", (browserWs) => {
-  console.log("[browser] connected");
+wss.on("connection", (browserWs, req) => {
+  // ?industry=saas|logistics|realestate picks which persona variant gets
+  // sent to the Voice Agent API -- falls back to the default if missing
+  // or not one of the three known presets.
+  const requestedIndustry = new URL(req.url, "http://localhost").searchParams.get("industry");
+  const industry = SYSTEM_PROMPTS[requestedIndustry] ? requestedIndustry : DEFAULT_INDUSTRY;
+  console.log(`[browser] connected (industry: ${industry}${requestedIndustry && requestedIndustry !== industry ? `, requested "${requestedIndustry}" was invalid` : ""})`);
 
   let agentWs = null;
   let agentReady = false;
@@ -164,7 +203,7 @@ wss.on("connection", (browserWs) => {
     sendToAgent({
       type: "session.update",
       session: {
-        system_prompt: SYSTEM_PROMPT,
+        system_prompt: getSystemPrompt(industry),
         greeting: GREETING,
         input: {
           format: { encoding: "audio/pcm" },
@@ -225,6 +264,13 @@ wss.on("connection", (browserWs) => {
         sendToBrowser({ type: "transcript", speaker: "prospect", text: msg.text, final: true });
         break;
 
+      case "reply.started":
+        // Jordan has started generating a reply -- audio/text haven't
+        // arrived yet. Forwarded so the browser can show a "typing..."
+        // indicator instead of a dead silence while it waits.
+        sendToBrowser({ type: "reply_started" });
+        break;
+
       case "tool.call": {
         // Confirmed flat shape per the AsyncAPI spec: { call_id, name, arguments }.
         const { call_id: callId, name: toolName, arguments: toolArgs = {} } = msg;
@@ -254,7 +300,7 @@ wss.on("connection", (browserWs) => {
       case "session.ended":
         console.log("[agent] session.ended", msg);
         console.log("[objection log for this call]", JSON.stringify(objectionLog, null, 2));
-        sendToBrowser({ type: "status", message: "call ended -- generating scorecard..." });
+        sendToBrowser({ type: "status", message: "call ended, generating scorecard..." });
         console.log("[scorecard] requesting from LLM Gateway...");
         generateScorecard(API_KEY, objectionLog, transcriptLog)
           .then((scorecard) => {
@@ -263,7 +309,7 @@ wss.on("connection", (browserWs) => {
           })
           .catch((err) => {
             console.error("[scorecard] generation failed:", err);
-            sendToBrowser({ type: "status", message: "call ended (scorecard generation failed -- see server log)" });
+            sendToBrowser({ type: "status", message: "call ended (scorecard generation failed, see server log)" });
           })
           .finally(() => {
             if (browserWs.readyState === WebSocket.OPEN) browserWs.close();
@@ -336,6 +382,6 @@ wss.on("connection", (browserWs) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Objection-practice backend listening on http://localhost:${PORT}`);
+  console.log(`Pushback backend listening on http://localhost:${PORT}`);
   console.log(`Audio sample rate expected end-to-end: ${AUDIO_SAMPLE_RATE} Hz PCM16 mono`);
 });

@@ -1,4 +1,4 @@
-# Sales Objection Practice Partner
+# Pushback
 
 A voice-based practice partner for sales objection handling, built for the
 AssemblyAI Voice Agent Hackathon. You pitch out loud to a skeptical AI
