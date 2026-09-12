@@ -3,87 +3,924 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Objection Practice - Bare Loop Test</title>
+  <title>Pushback</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; }
+    /* Safety net: several rules below set `display: flex` on buttons that
+       are also toggled via the `hidden` attribute. Same specificity as the
+       browser's built-in `[hidden] { display: none }` rule means source
+       order decides the winner, and those flex rules come later -- so
+       without this, `hidden` gets silently overridden and elements stay
+       visible. This unconditionally wins regardless of what else targets
+       the same element. */
+    [hidden] { display: none !important; }
+    :root {
+      --bg: #f5f5fb;
+      --text: #15152b;
+      --text-gray: #63637a;
+      --accent: #1d4ed8;
+      --accent-light: #93c5fd;
+      --navy: #0f172a;
+      --card: #ffffff;
+      --border: #e6e6f2;
+    }
     body {
-      font-family: system-ui, sans-serif;
-      max-width: 640px;
-      margin: 40px auto;
-      padding: 0 16px;
-      color: #1a1a1a;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
     }
-    h1 { font-size: 1.3rem; }
-    #status {
-      font-size: 0.9rem;
-      color: #555;
-      margin-bottom: 16px;
-    }
+    h1 { font-size: 1.3rem; margin: 0 0 12px; }
+    a { color: inherit; }
     button {
+      font-family: inherit;
       font-size: 1rem;
       padding: 10px 20px;
-      border-radius: 6px;
-      border: 1px solid #333;
-      background: #1a1a1a;
+      border-radius: 999px;
+      border: 1px solid var(--text);
+      background: var(--text);
       color: white;
       cursor: pointer;
     }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     button.stop { background: #a11; border-color: #a11; }
+    button.secondary {
+      background: transparent;
+      color: #555;
+      border-color: #ccc;
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      margin-left: 8px;
+      border-radius: 6px;
+    }
+
+    /* ============ Landing page ============ */
+    .section { max-width: 1180px; margin: 0 auto; padding: 64px 36px; }
+    .eyebrow {
+      font-size: 0.75rem; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px;
+    }
+    .section-title { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; margin: 0 0 14px; letter-spacing: -0.01em; }
+    .section-desc { font-size: 1rem; color: var(--text-gray); line-height: 1.6; max-width: 560px; }
+
+    /* --- Nav --- */
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: 1180px; margin: 0 auto; padding: 24px 36px;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1rem; }
+    .nav-mark { width: 26px; height: 18px; position: relative; flex-shrink: 0; }
+    .nav-mark span { position: absolute; width: 16px; height: 16px; border-radius: 999px; background: var(--text); }
+    .nav-mark span:first-child { left: 0; top: 0; }
+    .nav-mark span:last-child { left: 9px; top: 1px; background: var(--accent); }
+    .nav-links { display: flex; gap: 28px; list-style: none; margin: 0; padding: 0; }
+    .nav-links a { font-size: 0.9rem; font-weight: 600; text-decoration: none; color: var(--text); transition: color 0.15s ease; }
+    .nav-links a:hover { color: var(--accent); }
+    .nav button { font-size: 0.85rem; padding: 10px 20px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .nav button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(21, 21, 43, 0.18); }
+
+    /* --- Hero --- */
+    .hero { padding-top: 20px; padding-bottom: 40px; }
+    .hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 32px; align-items: center; }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; font-weight: 600; color: var(--text-gray);
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 14px; margin-bottom: 20px;
+    }
+    .headline {
+      font-weight: 800;
+      font-size: clamp(2.4rem, 5vw, 3.4rem);
+      line-height: 1.08;
+      margin: 0 0 20px;
+      letter-spacing: -0.02em;
+    }
+    .hero-sub { font-size: 1.05rem; line-height: 1.6; color: var(--text-gray); max-width: 460px; margin: 0 0 28px; }
+    .scenario-row { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+    .scenario-row label { font-size: 0.8rem; font-weight: 700; color: var(--text-gray); }
+    .scenario-row select {
+      font-family: inherit;
+      font-size: 0.85rem; font-weight: 600; color: var(--text);
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 999px; padding: 7px 14px;
+      cursor: pointer;
+    }
+    .hero-cta-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .pill-cta {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 999px; padding: 14px 22px 14px 18px;
+      font-size: 0.95rem; font-weight: 700; color: var(--text);
+      box-shadow: 0 12px 30px rgba(29, 78, 216, 0.12);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .pill-cta:hover {
+      border-color: var(--accent-light);
+      transform: translateY(-2px);
+      box-shadow: 0 18px 36px rgba(29, 78, 216, 0.2);
+    }
+    .link-arrow {
+      background: none; border: none; color: var(--text); font-weight: 600;
+      font-size: 0.9rem; cursor: pointer; text-decoration: underline; padding: 0;
+      display: inline-block;
+      transition: color 0.15s ease, transform 0.15s ease;
+    }
+    .link-arrow:hover { color: var(--accent); transform: scale(1.04); }
+
+    /* --- Objection types row --- */
+    .card-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 32px;
+    }
+    .obj-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 22px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .obj-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 30px rgba(21, 21, 43, 0.08);
+      border-color: var(--accent-light);
+    }
+    .obj-card-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 1.1rem; margin-bottom: 14px;
+      transition: transform 0.2s ease;
+    }
+    .obj-card:hover .obj-card-icon { transform: scale(1.08); }
+    .obj-card h3 { font-size: 1rem; margin: 0 0 6px; }
+    .obj-card p { font-size: 0.82rem; color: var(--text-gray); line-height: 1.4; margin: 0 0 14px; }
+    .obj-card .see-example {
+      font-size: 0.8rem; font-weight: 700; color: var(--accent); text-decoration: none;
+      background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;
+      transition: transform 0.15s ease;
+      display: inline-block;
+    }
+    .obj-card .see-example:hover { transform: translateX(3px); }
+
+    /* --- How it works --- */
+    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 32px; }
+    .step-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .step-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 30px rgba(21, 21, 43, 0.08);
+      border-color: var(--accent-light);
+    }
+    .step-num {
+      width: 32px; height: 32px; border-radius: 50%; background: var(--text); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem;
+      margin-bottom: 16px;
+      transition: background 0.2s ease;
+    }
+    .step-card:hover .step-num { background: var(--accent); }
+    .step-card h3 { font-size: 1.05rem; margin: 0 0 8px; }
+    .step-card p { font-size: 0.85rem; color: var(--text-gray); line-height: 1.5; margin: 0; }
+
+    /* --- Mockup panel (now in the hero) + "About" text section --- */
+    .about-link { display: inline-block; margin-top: 18px; font-weight: 700; font-size: 0.9rem; text-decoration: underline; }
+
+    .visual-panel {
+      position: relative;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 440px;
+      aspect-ratio: 1 / 1;
+      min-height: 360px; /* fallback in case aspect-ratio fails to resolve in a grid cell */
+      margin: 0 auto;
+      background: var(--navy);
+      overflow: hidden;
+      box-shadow: 0 40px 80px -20px rgba(15, 23, 42, 0.35);
+      transform: perspective(900px) rotateX(0deg) rotateY(0deg);
+      transition: transform 0.15s ease-out;
+      will-change: transform;
+    }
+    .grain {
+      position: absolute; inset: 0; z-index: 0; opacity: 0.06; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    /* Subtle uptrending line chart in the background of the hero card --
+       ties the "success" visual to the real product story (score climbs
+       with practice) rather than being purely decorative. Sits behind the
+       live demo content (chips/mic/cards, all z-index:2). */
+    .trend-chart { position: absolute; inset: 0; z-index: 0; opacity: 0.55; pointer-events: none; }
+    .trend-fill { opacity: 0; animation: trendFillFade 3.5s ease-out infinite; }
+    .trend-line {
+      stroke-dasharray: 520;
+      stroke-dashoffset: 520;
+      animation: trendDrawLine 3.5s ease-out infinite;
+    }
+    .trend-dot {
+      opacity: 0;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: trendDotPop 3.5s ease-out infinite;
+    }
+    @keyframes trendDrawLine {
+      0% { stroke-dashoffset: 520; }
+      65% { stroke-dashoffset: 0; }
+      100% { stroke-dashoffset: 0; }
+    }
+    @keyframes trendFillFade {
+      0%, 20% { opacity: 0; }
+      75%, 100% { opacity: 1; }
+    }
+    @keyframes trendDotPop {
+      0%, 60% { opacity: 0; transform: scale(0); }
+      72% { opacity: 1; transform: scale(1.4); }
+      82%, 100% { opacity: 1; transform: scale(1); }
+    }
+    .mic-button {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 60px; height: 60px; border-radius: 50%; background: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+      color: #141414;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      z-index: 2;
+    }
+    .mic-button::before {
+      content: ""; position: absolute; inset: -14px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.35); z-index: 1;
+      animation: micPulse 2.2s ease-in-out infinite;
+    }
+    @keyframes micPulse {
+      0% { transform: scale(0.85); opacity: 0.55; }
+      70%, 100% { transform: scale(1.35); opacity: 0; }
+    }
+    .waveform {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, 40px);
+      display: flex; align-items: flex-end; gap: 4px; height: 20px; z-index: 2;
+    }
+    .waveform span { width: 3px; border-radius: 2px; background: rgba(255,255,255,0.85); height: 6px; animation: waveBar 1s ease-in-out infinite; }
+    .waveform span:nth-child(1) { animation-delay: 0s;    animation-duration: 0.9s; }
+    .waveform span:nth-child(2) { animation-delay: 0.15s; animation-duration: 1.1s; }
+    .waveform span:nth-child(3) { animation-delay: 0.05s; animation-duration: 0.8s; }
+    .waveform span:nth-child(4) { animation-delay: 0.25s; animation-duration: 1s; }
+    .waveform span:nth-child(5) { animation-delay: 0.1s;  animation-duration: 0.95s; }
+    .waveform span:nth-child(6) { animation-delay: 0.2s;  animation-duration: 1.05s; }
+    @keyframes waveBar { 0%, 100% { height: 6px; } 50% { height: 20px; } }
+    .chip {
+      position: absolute; display: flex; align-items: center; gap: 7px;
+      background: rgba(255,255,255,0.95); border-radius: 999px; padding: 7px 12px 7px 7px;
+      font-size: 0.72rem; font-weight: 600; color: #222;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.15); opacity: 0; z-index: 2;
+    }
+    .chip-check { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.6rem; }
+    .chip-1 { top: 20%; left: 6%; }
+    .chip-2 { top: 33%; left: 14%; }
+    .float-card {
+      position: absolute; background: rgba(255,255,255,0.88); backdrop-filter: blur(8px);
+      border-radius: 14px; box-shadow: 0 18px 40px rgba(0,0,0,0.28); opacity: 0; z-index: 2;
+    }
+    @keyframes floatFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes floatFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-6px); } }
+    .anim-in { animation: floatFadeIn 0.45s ease forwards; }
+    .anim-out { animation: floatFadeOut 0.4s ease forwards; }
+    .float-score { top: 7%; right: 6%; padding: 12px 14px; text-align: left; width: 105px; }
+    .float-score .label { font-size: 0.55rem; color: #777; text-transform: uppercase; letter-spacing: 0.04em; }
+    .float-score .num { font-size: 1.4rem; font-weight: 800; color: #0b5; line-height: 1.1; margin: 2px 0; }
+    .float-score .sub { font-size: 0.6rem; color: #666; }
+    .float-objection { bottom: 7%; right: 6%; padding: 10px 12px; width: 170px; text-align: left; }
+    .float-objection .pill {
+      display: inline-block; padding: 2px 9px; border-radius: 999px;
+      font-size: 0.55rem; font-weight: 700; color: #fff; background: #c0293d;
+      text-transform: uppercase; margin-bottom: 5px;
+    }
+    .float-objection .verdict { font-size: 0.7rem; font-weight: 700; color: #0b5; margin-bottom: 3px; }
+    .float-objection .snippet { font-size: 0.6rem; color: #555; line-height: 1.3; }
+
+    /* --- Built with AssemblyAI --- */
+    .trust-badges { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 24px; }
+    .trust-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+      padding: 10px 18px; font-size: 0.85rem; font-weight: 700; color: var(--text);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+    .trust-badge:hover {
+      border-color: var(--accent-light); color: var(--accent);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px rgba(21, 21, 43, 0.1);
+    }
+
+    /* --- Roadmap --- */
+    .roadmap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 32px; }
+    .roadmap-col {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .roadmap-col:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 30px rgba(21, 21, 43, 0.08);
+      border-color: var(--accent-light);
+    }
+    .roadmap-col h4 { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin: 0 0 14px; }
+    .roadmap-col ul { list-style: none; margin: 0; padding: 0; }
+    .roadmap-col li { font-size: 0.85rem; color: var(--text); padding: 7px 0 7px 22px; position: relative; line-height: 1.4; border-bottom: 1px solid var(--border); }
+    .roadmap-col li:last-child { border-bottom: none; }
+    .roadmap-col li::before { content: ""; position: absolute; left: 0; top: 11px; width: 12px; height: 12px; border-radius: 4px; border: 2px solid var(--accent-light); }
+    .roadmap-col.now li::before { background: var(--accent); border-color: var(--accent); }
+
+    /* --- Footer --- */
+    footer { border-top: 1px solid var(--border); padding: 40px 36px; max-width: 1180px; margin: 0 auto; }
+    .footer-grid { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 24px; }
+    .footer-links { display: flex; gap: 48px; flex-wrap: wrap; }
+    .footer-col h5 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-gray); margin: 0 0 10px; }
+    .footer-col a { display: block; font-size: 0.85rem; text-decoration: none; color: var(--text); margin-bottom: 8px; }
+    .footer-col a:hover { color: var(--accent); }
+    .footer-copy { font-size: 0.78rem; color: var(--text-gray); margin-top: 32px; }
+
+    /* Scroll-reveal: sections fade + slide up the first time they enter
+       view (see the IntersectionObserver in client.js). Excludes the
+       hero, which is visible immediately on load. */
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }
+    .reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 860px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .steps-grid, .roadmap-grid { grid-template-columns: 1fr; }
+      .card-row { grid-template-columns: 1fr 1fr; }
+      .nav-links { display: none; }
+      .section { padding: 44px 22px; }
+      .nav { padding: 20px 22px; }
+    }
+    @media (max-width: 520px) {
+      .card-row { grid-template-columns: 1fr; }
+    }
+
+    /* ============ Call interface (#app) ============ */
+    #app { max-width: 640px; margin: 40px auto; padding: 0 16px; }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: none; border: none; padding: 0; margin-bottom: 16px;
+      font-family: inherit; font-size: 0.85rem; font-weight: 600;
+      color: var(--text-gray, #63637a); cursor: pointer;
+      transition: color 0.15s ease, transform 0.15s ease;
+    }
+    .back-link:hover { color: var(--text, #15152b); transform: translateX(-2px); }
+
+    /* --- Main call card -- "Caller" reference layout, flat professional
+       color instead of a gradient: centered avatar/name/timer, soft pill
+       controls --- */
+    .call-card {
+      position: relative;
+      border-radius: 24px;
+      overflow: hidden;
+      padding: 40px 24px 28px;
+      background: var(--navy);
+      box-shadow: 0 30px 60px rgba(15, 23, 42, 0.35);
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .call-avatar {
+      position: relative; z-index: 1;
+      width: 92px; height: 92px; border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; font-weight: 800; color: #fff;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+      border: 3px solid rgba(255,255,255,0.5);
+      margin: 0 auto 16px;
+    }
+    .call-name { position: relative; z-index: 1; color: #fff; font-size: 1.7rem; font-weight: 800; margin-bottom: 4px; }
+    .call-subtitle { position: relative; z-index: 1; color: rgba(255,255,255,0.85); font-size: 0.9rem; margin-bottom: 8px; }
+    .call-timer {
+      position: relative; z-index: 1; color: rgba(255,255,255,0.95);
+      font-size: 1rem; font-weight: 600; margin-bottom: 28px;
+      font-variant-numeric: tabular-nums;
+    }
+    /* Secondary row: mute mic / mute speaker -- smaller toggle icons,
+       matching iOS's in-call icon row (translucent off, solid white +
+       dark icon when toggled on). */
+    .call-secondary-controls { position: relative; z-index: 1; display: flex; justify-content: center; gap: 22px; margin-bottom: 18px; }
+    .call-control {
+      width: 58px; height: 58px; border-radius: 50%;
+      background: rgba(255,255,255,0.22); border: none; color: #fff;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+      transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+    }
+    .call-control:hover { transform: translateY(-2px); background: rgba(255,255,255,0.32); }
+    .call-control.muted { background: #fff; color: #1a1a2e; }
+    .call-control .icon-off { display: none; }
+    .call-control.muted .icon-on { display: none; }
+    .call-control.muted .icon-off { display: flex; }
+
+    /* Primary row: start / end call -- one big button alone, matching
+       iOS's larger, separated hang-up button beneath the icon row. */
+    .call-primary-controls { position: relative; z-index: 1; display: flex; justify-content: center; margin-bottom: 12px; }
+    .call-control-start, .call-control-end {
+      width: 76px; height: 76px; border-radius: 50%; border: none; color: #fff;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.25);
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .call-control-start { background: #22c55e; }
+    .call-control-start:hover { background: #16a34a; transform: translateY(-2px) scale(1.05); }
+    .call-control-end { background: #e11d48; }
+    .call-control-end:hover { background: #be123c; transform: translateY(-2px) scale(1.05); }
+    /* Apple's hang-up icon is literally the same handset glyph, rotated. */
+    .call-control-end svg { transform: rotate(135deg); }
+    .call-status { position: relative; z-index: 1; text-align: center; color: rgba(255,255,255,0.8); font-size: 0.8rem; margin-top: 14px; }
+
+    /* --- Live objection tracker: 4-item checklist, scoped to the current
+       call only -- reset at the start of every call/preview. --- */
+    .objection-tracker {
+      margin-top: 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px 18px;
+      box-shadow: 0 12px 28px rgba(21, 21, 43, 0.06);
+    }
+    .tracker-title {
+      font-size: 0.75rem; font-weight: 700; color: var(--text-gray);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+    }
+    .tracker-list { display: flex; flex-direction: column; gap: 8px; }
+    .tracker-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 10px;
+      background: #f7f7fb;
+      transition: background 0.25s ease;
+    }
+    .tracker-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+      opacity: 0.35; transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .tracker-label { flex: 1; font-size: 0.88rem; font-weight: 600; color: var(--text-gray); transition: color 0.25s ease; }
+    .tracker-check {
+      opacity: 0; transform: scale(0.5); color: #0b5; font-weight: 800;
+      transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .tracker-item.raised { background: #fff; box-shadow: 0 4px 12px rgba(21,21,43,0.06); }
+    .tracker-item.raised .tracker-dot { opacity: 1; transform: scale(1.15); }
+    .tracker-item.raised .tracker-label { color: var(--text); }
+    .tracker-item.raised .tracker-check { opacity: 1; transform: scale(1); }
+
     #transcript {
       margin-top: 24px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 12px;
-      height: 320px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      height: 360px;
       overflow-y: auto;
-      background: #fafafa;
+      box-shadow: 0 12px 28px rgba(21, 21, 43, 0.06);
     }
-    .line { margin-bottom: 8px; line-height: 1.4; }
-    .line.you { color: #0b5; }
-    .line.prospect { color: #16c; }
-    .line.tag { color: #a60; font-size: 0.85rem; font-style: italic; }
-    .line b { display: inline-block; min-width: 70px; }
+    #transcript::-webkit-scrollbar { width: 8px; }
+    #transcript::-webkit-scrollbar-track { background: transparent; }
+    #transcript::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+    #transcript::-webkit-scrollbar-thumb:hover { background: var(--accent-light); }
+
+    /* Chat bubbles -- You on the right, Jordan on the left, like a
+       messaging app. `display: table` shrink-wraps the bubble to its
+       content (like inline-block) while still letting a margin: auto
+       push it to either side, without needing a flex wrapper per line. */
+    .line {
+      display: table;
+      max-width: 78%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      margin-bottom: 10px;
+      line-height: 1.45;
+      font-size: 0.92rem;
+    }
+    .line.you {
+      margin-left: auto;
+      background: var(--accent);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .line.prospect {
+      margin-right: auto;
+      background: #f0f0f6;
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+    .line b {
+      display: block;
+      font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      opacity: 0.7; margin-bottom: 3px;
+    }
+    .line.you b { color: rgba(255,255,255,0.9); }
+    .line.prospect b { color: var(--text-gray); }
+    .line-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+
+    /* Every new bubble/badge plays this once on insertion -- these are
+       always freshly-created DOM nodes, so a plain unconditional
+       `animation` (no class toggling needed) fires exactly once each. */
+    @keyframes bubbleIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes badgePop { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+    .line, .typing-indicator { animation: bubbleIn 0.3s ease; }
+    #transcript { scroll-behavior: smooth; }
+
+    .obj-badge {
+      display: inline-block; padding: 2px 9px; border-radius: 999px;
+      font-size: 0.62rem; font-weight: 700; color: #fff; letter-spacing: 0.03em;
+      cursor: default;
+      animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* "Jordan is typing..." -- three bouncing dots in a bubble matching
+       Jordan's own bubble style, shown between reply.started and the
+       final transcript.agent/next transcript line arriving. */
+    .typing-indicator {
+      display: table;
+      background: #f0f0f6;
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+    }
+    .typing-indicator .dot {
+      display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-gray); margin: 0 2px;
+      animation: typingBounce 1.2s infinite ease-in-out;
+    }
+    .typing-indicator .dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing-indicator .dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+      30% { transform: translateY(-4px); opacity: 1; }
+    }
 
     #scorecard {
       margin-top: 24px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 16px;
-      background: #fff;
+      border: 1px solid var(--border, #e6e6f2);
+      border-top: 4px solid var(--score-color, var(--accent, #1d4ed8));
+      border-radius: 18px;
+      padding: 24px;
+      background: var(--card, #fff);
+      box-shadow: 0 16px 40px rgba(21, 21, 43, 0.08);
+      transition: border-top-color 0.4s ease;
     }
-    .sc-summary { margin-top: 0; line-height: 1.5; }
+    .sc-summary {
+      margin: 0 0 8px;
+      line-height: 1.55;
+      font-size: 0.95rem;
+      color: var(--text, #15152b);
+      padding-left: 14px;
+      border-left: 3px solid var(--border, #e6e6f2);
+    }
+
+    /* Verdict filter row -- click a pill to show only objections with that
+       verdict; click it again (or "All") to clear the filter. */
+    .sc-filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 16px; }
+    .sc-filter-btn {
+      font-family: inherit;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 13px; border-radius: 999px;
+      font-size: 0.75rem; font-weight: 700;
+      border: 1px solid var(--border, #e6e6f2);
+      background: var(--card, #fff);
+      color: var(--text-gray, #63637a);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .sc-filter-btn .count { opacity: 0.7; font-weight: 600; }
+    .sc-filter-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(21,21,43,0.08); }
+    .sc-filter-btn.active { background: var(--text, #15152b); border-color: var(--text, #15152b); color: #fff; }
+    .sc-filter-btn.active .count { opacity: 0.85; }
+
     .sc-objection {
-      border-left: 4px solid #999;
-      background: #fafafa;
-      border-radius: 4px;
-      padding: 8px 12px;
-      margin-bottom: 10px;
+      border-left: 4px solid #999; background: #fafafa; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+      animation: bubbleIn 0.35s ease backwards; /* backwards: stay hidden during animation-delay, not flash visible */
+      transition: transform 0.15s ease, box-shadow 0.15s ease, max-height 0.25s ease, opacity 0.25s ease, margin 0.25s ease, padding 0.25s ease;
     }
+    .sc-objection:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(21, 21, 43, 0.1); }
     .sc-objection.sc-handled_well { border-left-color: #0b5; }
     .sc-objection.sc-partially_handled { border-left-color: #d90; }
     .sc-objection.sc-fumbled { border-left-color: #c22; }
-    .sc-objection-head {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-      color: #555;
+    .sc-objection.sc-filtered-out {
+      opacity: 0; max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; overflow: hidden;
+      border-width: 0; pointer-events: none;
     }
-    .sc-prospect-line { margin-top: 6px; font-style: italic; color: #333; }
+    .sc-objection-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; color: #555; }
+    .sc-type-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.03em; }
+    .sc-verdict {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 999px;
+      font-size: 0.7rem; font-weight: 700; color: #fff; white-space: nowrap;
+    }
+    .sc-prospect-line { margin-top: 8px; font-style: italic; color: #333; }
     .sc-feedback { margin-top: 4px; line-height: 1.4; }
-    .sc-list { margin-top: 12px; }
-    .sc-list ul { margin: 4px 0 0; padding-left: 20px; }
-    .sc-list li { margin-bottom: 4px; }
+    .sc-list { margin-top: 16px; animation: bubbleIn 0.4s ease backwards; animation-delay: 0.25s; }
+    .sc-list .sc-list-title { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+    .sc-list ul { margin: 8px 0 0; padding-left: 0; list-style: none; }
+    .sc-list li {
+      display: flex; align-items: flex-start; gap: 8px;
+      margin-bottom: 6px; padding: 4px 6px; border-radius: 8px;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .sc-list li:hover { transform: translateX(3px); background: #f7f7fb; }
+    .sc-list li svg { flex-shrink: 0; margin-top: 2px; }
+    .sc-list.strengths li svg { color: #0b5; }
+    .sc-list.improve li svg { color: #d90; }
+    .sc-score-row { display: flex; align-items: center; justify-content: center; gap: 32px; flex-wrap: wrap; margin: 20px 0 24px; padding: 20px; background: #f6f7fb; border-radius: 14px; }
+
+    /* Stat-card grid (replaces the old gauge+radar row) -- one prominent
+       full-width "Overall" card with the arc gauge, then a category per
+       card with a big number and a fill bar, closer to a real dashboard
+       than a radar chart is. */
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0 24px; }
+    .stat-card {
+      background: #f6f7fb; border-radius: 14px; padding: 16px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(21, 21, 43, 0.1); }
+    .stat-overall { grid-column: 1 / -1; }
+    .stat-label { font-size: 0.68rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    .stat-gauge-row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .stat-substats { display: flex; gap: 20px; flex-wrap: wrap; }
+    .stat-substat { display: flex; flex-direction: column; }
+    .stat-substat b { font-size: 1.15rem; font-weight: 800; color: var(--text, #15152b); line-height: 1.2; }
+    .stat-substat span { font-size: 0.68rem; color: #888; }
+    .stat-num-big { font-size: 1.7rem; font-weight: 800; line-height: 1; margin-bottom: 10px; }
+    .stat-bar { height: 6px; border-radius: 999px; background: #e2e5ec; overflow: hidden; }
+    .stat-bar-fill { height: 100%; width: 0%; border-radius: 999px; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+    @media (max-width: 480px) {
+      .stat-grid { grid-template-columns: 1fr; }
+      .stat-overall { grid-column: 1; }
+    }
+    .sc-gauge-wrap { position: relative; width: 150px; height: 150px; flex-shrink: 0; cursor: default; transition: transform 0.2s ease; }
+    .sc-gauge-wrap:hover { transform: scale(1.05); }
+    .sc-gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+    .sc-overall-num { font-size: 2.1rem; font-weight: 800; line-height: 1; }
+    .sc-overall-label { font-size: 0.7rem; color: #777; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+    .sc-chart-wrap { width: 280px; max-width: 100%; aspect-ratio: 1 / 1; flex-shrink: 0; }
   </style>
 </head>
 <body>
-  <h1>Sales Objection Practice -- Bare Loop Test</h1>
-  <div id="status">idle</div>
-  <button id="toggle">Start Call</button>
-  <div id="transcript"></div>
-  <div id="scorecard" hidden></div>
+  <section id="landing">
+    <nav class="nav">
+      <div class="nav-brand">
+        <div class="nav-mark"><span></span><span></span></div>
+        Pushback
+      </div>
+      <ul class="nav-links">
+        <li><a href="#objection-types">Objection types</a></li>
+        <li><a href="#how-it-works">How it works</a></li>
+        <li><a href="#roadmap">Roadmap</a></li>
+        <li><a href="#about">About</a></li>
+      </ul>
+      <button id="startFromLandingNav">Start Practice Call</button>
+    </nav>
+
+    <div class="section hero">
+      <div class="hero-grid">
+        <div>
+          <div class="hero-eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Powered by AssemblyAI</div>
+          <h1 class="headline">Overcome Every Objection. Close More Deals.</h1>
+          <p class="hero-sub">Pitch out loud to an AI prospect that pushes back for real, then see exactly what worked and what didn't, so you're ready before it counts.</p>
+          <div class="scenario-row">
+            <label for="industrySelect">Scenario</label>
+            <select id="industrySelect">
+              <option value="logistics">Logistics</option>
+              <option value="saas">SaaS</option>
+              <option value="realestate">Real Estate</option>
+            </select>
+          </div>
+          <div class="hero-cta-row">
+            <button id="startFromLanding" class="pill-cta"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.58 1 1 0 0 1-.25 1.01z"/></svg> Start Practice Call</button>
+            <button id="previewFromLanding" class="link-arrow">Preview a sample scorecard &#8599;</button>
+          </div>
+        </div>
+        <div class="visual-panel">
+          <div class="grain"></div>
+          <svg class="trend-chart" viewBox="0 0 400 400" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.4"/>
+                <stop offset="100%" stop-color="#93c5fd" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path class="trend-fill" d="M0,340 L55,325 L115,300 L170,235 L225,255 L285,175 L340,130 L400,80 L400,400 L0,400 Z" fill="url(#trendFill)"/>
+            <polyline class="trend-line" points="0,340 55,325 115,300 170,235 225,255 285,175 340,130 400,80" fill="none" stroke="#93c5fd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle class="trend-dot" cx="400" cy="80" r="5" fill="#93c5fd"/>
+          </svg>
+          <div class="chip chip-1"><span class="chip-check" style="background:#2f6fed"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg></span>Listening...</div>
+          <div class="chip chip-2"><span class="chip-check"></span><span class="chip-label">Objection: Price</span></div>
+          <div class="mic-button"><svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.58 1 1 0 0 1-.25 1.01z"/></svg></div>
+          <div class="waveform"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="float-card float-score">
+            <div class="label">This call</div>
+            <div class="num">0%</div>
+            <div class="sub">Objection score</div>
+          </div>
+          <div class="float-card float-objection">
+            <span class="pill">Price</span>
+            <div class="verdict">Handled well</div>
+            <div class="snippet">Offered a concrete ROI estimate instead of a vague reassurance.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section reveal" id="objection-types">
+      <div class="eyebrow">Practice now</div>
+      <div class="section-title">Objection types you'll face</div>
+      <p class="section-desc">Jordan raises these naturally over the course of a call, never all at once, always reacting to what you actually say.</p>
+      <div class="card-row">
+        <div class="obj-card">
+          <div class="obj-card-icon" style="background:#c0293d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>Price</h3>
+          <p>Budget, ROI, and approval-to-spend pushback.</p>
+          <button class="see-example">See example &rarr;</button>
+        </div>
+        <div class="obj-card">
+          <div class="obj-card-icon" style="background:#c76a00"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          <h3>Timing</h3>
+          <p>Why now vs. later, onboarding schedule doubts.</p>
+          <button class="see-example">See example &rarr;</button>
+        </div>
+        <div class="obj-card">
+          <div class="obj-card-icon" style="background:#1d4ed8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+          <h3>Competitor</h3>
+          <p>Comparisons against another vendor already in the mix.</p>
+          <button class="see-example">See example &rarr;</button>
+        </div>
+        <div class="obj-card">
+          <div class="obj-card-icon" style="background:#0a8a72"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg></div>
+          <h3>Send info</h3>
+          <p>The classic brush-off: "just email me something."</p>
+          <button class="see-example">See example &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section reveal" id="how-it-works">
+      <div class="eyebrow">The flow</div>
+      <div class="section-title">How it works</div>
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <h3>Pitch</h3>
+          <p>Talk through your pitch out loud, mic to mic, no script to read from.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <h3>Get pushed back on</h3>
+          <p>Jordan raises real objections as you go, reacting to what you actually say.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <h3>Get scored</h3>
+          <p>See an overall score and a category breakdown of what you handled well.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section reveal" id="about">
+      <div class="eyebrow">What is this</div>
+      <div class="section-title">What is Pushback?</div>
+      <p class="section-desc" style="max-width: 640px;">A voice-based practice partner built on AssemblyAI's Voice Agent API. It plays a skeptical prospect who tags each objection it raises via tool-calling, then hands off the transcript to AssemblyAI's LLM Gateway to generate an honest, category-scored review of the call.</p>
+      <a class="about-link" href="https://github.com/sunnyib4/sales-objection-practice-partner" target="_blank" rel="noopener">View the code &#8599;</a>
+    </div>
+
+    <div class="section reveal">
+      <div class="eyebrow">Under the hood</div>
+      <div class="section-title">Built with AssemblyAI</div>
+      <p class="section-desc">Voice, transcription, tool-calling, and scoring all run on AssemblyAI's stack, deployed on a persistent host so it stays live for real calls.</p>
+      <div class="trust-badges">
+        <span class="trust-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> AssemblyAI Voice Agent API</span>
+        <span class="trust-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg> AssemblyAI LLM Gateway</span>
+        <span class="trust-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Fly.io</span>
+      </div>
+    </div>
+
+    <div class="section reveal" id="roadmap">
+      <div class="eyebrow">What's next</div>
+      <div class="section-title">Roadmap</div>
+      <div class="roadmap-grid">
+        <div class="roadmap-col now">
+          <h4>Now</h4>
+          <ul>
+            <li>Live voice practice call</li>
+            <li>Real-time objection tagging</li>
+            <li>Post-call scorecard with category breakdown</li>
+          </ul>
+        </div>
+        <div class="roadmap-col">
+          <h4>Next</h4>
+          <ul>
+            <li>Difficulty & scenario selector</li>
+            <li>Session history across calls</li>
+            <li>Additional prospect personas</li>
+          </ul>
+        </div>
+        <div class="roadmap-col">
+          <h4>Later</h4>
+          <ul>
+            <li>Team practice leaderboards</li>
+            <li>Custom objection playbooks</li>
+            <li>CRM integration</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <footer class="reveal">
+      <div class="footer-grid">
+        <div class="nav-brand">
+          <div class="nav-mark"><span></span><span></span></div>
+          Pushback
+        </div>
+        <div class="footer-links">
+          <div class="footer-col">
+            <h5>Product</h5>
+            <a href="#" id="footerStart">Start a practice call</a>
+            <a href="https://github.com/sunnyib4/sales-objection-practice-partner" target="_blank" rel="noopener">GitHub repo</a>
+          </div>
+          <div class="footer-col">
+            <h5>Built with</h5>
+            <a href="https://www.assemblyai.com/docs/voice-agents/voice-agent-api" target="_blank" rel="noopener">AssemblyAI Voice Agent API</a>
+            <a href="https://www.assemblyai.com/docs/llm-gateway/quickstart" target="_blank" rel="noopener">AssemblyAI LLM Gateway</a>
+            <a href="https://fly.io" target="_blank" rel="noopener">Fly.io</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-copy">Built for the AssemblyAI Voice Agent Hackathon.</div>
+    </footer>
+  </section>
+
+  <section id="app" hidden>
+    <button id="backToLanding" class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back
+    </button>
+    <div class="call-card">
+      <div class="grain"></div>
+      <div class="call-avatar">J</div>
+      <div class="call-name">Jordan</div>
+      <div class="call-subtitle" id="callSubtitle">VP of Operations &middot; Logistics</div>
+      <div class="call-timer" id="callTimer">00:00</div>
+
+      <div class="call-secondary-controls">
+        <button id="muteMicBtn" class="call-control" hidden title="Mute microphone" aria-label="Mute microphone">
+          <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+          <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M5 10a7 7 0 0 0 10.54 6.07"/><path d="M18.5 10A6.98 6.98 0 0 1 17 14.33"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+        </button>
+        <button id="muteSpeakerBtn" class="call-control" hidden title="Mute speaker" aria-label="Mute speaker">
+          <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+        </button>
+      </div>
+
+      <div class="call-primary-controls">
+        <button id="toggle" class="call-control call-control-start" title="Start call" aria-label="Start call">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.58 1 1 0 0 1-.25 1.01z"/></svg>
+        </button>
+        <button id="endCallBtn" class="call-control call-control-end" hidden title="End call" aria-label="End call">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.58 1 1 0 0 1-.25 1.01z"/></svg>
+        </button>
+      </div>
+
+      <div id="status" class="call-status">idle</div>
+    </div>
+
+    <div class="objection-tracker">
+      <div class="tracker-title">Objections raised this call</div>
+      <div class="tracker-list">
+        <div class="tracker-item" data-type="price">
+          <span class="tracker-dot" style="background:#c0293d"></span>
+          <span class="tracker-label">Price</span>
+          <span class="tracker-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></span>
+        </div>
+        <div class="tracker-item" data-type="timing">
+          <span class="tracker-dot" style="background:#c76a00"></span>
+          <span class="tracker-label">Timing</span>
+          <span class="tracker-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></span>
+        </div>
+        <div class="tracker-item" data-type="competitor">
+          <span class="tracker-dot" style="background:#1d4ed8"></span>
+          <span class="tracker-label">Competitor</span>
+          <span class="tracker-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></span>
+        </div>
+        <div class="tracker-item" data-type="send_info">
+          <span class="tracker-dot" style="background:#0a8a72"></span>
+          <span class="tracker-label">Send info</span>
+          <span class="tracker-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></span>
+        </div>
+      </div>
+    </div>
+
+    <button id="preview" class="secondary">Preview with sample data (no call, no API usage)</button>
+    <div id="transcript"></div>
+    <div id="scorecard" hidden></div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="client.js"></script>
 </body>
 </html>

@@ -16,17 +16,23 @@ const SCORECARD_MODEL = "qwen3.5-4b-32k-fast";
 const SCORER_SYSTEM_PROMPT = `You are a sales coaching assistant reviewing a practice call. You'll get the full transcript between a salesperson ("You") and a skeptical prospect named Jordan ("Prospect"), plus a list of objections Jordan raised, each tagged with a category.
 
 For each tagged objection, find the salesperson's actual response to it in the transcript (usually the next "You:" line right after it) and judge it:
-- "handled_well": specific and concrete -- a real number, a real timeline, a direct answer to the actual concern.
+- "handled_well": specific and concrete, a real number, a real timeline, a direct answer to the actual concern.
 - "partially_handled": addressed it somewhat but stayed vague or generic, or only partly resolved it.
 - "fumbled": ignored the objection, was evasive, or caved/agreed to disengage instead of addressing it.
 
+Then, looking across the WHOLE call (not just objection responses), score two more dimensions from 0-100:
+- response_specificity_score: how often the salesperson's responses included concrete numbers, real timelines, or specific commitments, versus vague reassurance ("it's usually fine," "don't worry about it," "we can figure that out"). 100 = consistently specific and concrete throughout. 0 = consistently vague, no real numbers or specifics anywhere.
+- discovery_score: how often the salesperson asked genuine questions back to the prospect (about their situation, current setup, needs, timeline, budget process) instead of just defending or pitching. 100 = asked frequent, relevant discovery questions. 0 = never asked anything, purely defended or pitched the whole call.
+
 Also give 2-4 overall strengths, 2-4 areas to improve, and a 2-3 sentence overall_summary.
 
-Be specific and quote or closely paraphrase what was actually said. Do not default to generic positivity -- honest, concrete feedback is the entire point of this tool.
+Be specific and quote or closely paraphrase what was actually said. Do not default to generic positivity or a default-high score on any dimension. Honest, concrete, differentiated judgment is the entire point of this tool.
 
-Respond with ONLY a single JSON object -- no markdown code fences, no commentary before or after it. It must match exactly this shape:
+Respond with ONLY a single JSON object, no markdown code fences, no commentary before or after it. It must match exactly this shape:
 {
   "overall_summary": "2-3 sentence string",
+  "response_specificity_score": 0-100 integer,
+  "discovery_score": 0-100 integer,
   "objections": [
     {
       "objection_type": "one of the tagged categories, exactly as given",
@@ -38,7 +44,7 @@ Respond with ONLY a single JSON object -- no markdown code fences, no commentary
   "strengths": ["string", "string"],
   "areas_to_improve": ["string", "string"]
 }
-Include one entry in "objections" for every tagged objection given below, in the same order.`;
+Include one entry in "objections" for every tagged objection given below, in the same order. Do NOT include an objection_resolution_score or overall_score field; those are computed separately, not by you.`;
 
 // NOTE: this model doesn't support the LLM Gateway's response_format /
 // json_schema structured-output feature (confirmed via a live 400:
@@ -51,15 +57,45 @@ function extractJson(content) {
   return JSON.parse(candidate);
 }
 
+const VERDICT_POINTS = { handled_well: 100, partially_handled: 50, fumbled: 0 };
+
+// Coerce to a 0-100 integer, or null if the model returned something unusable
+// (missing, non-numeric, out of range) -- defensive since this isn't
+// schema-enforced by the API.
+function clampScore(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function average(numbers) {
+  const valid = numbers.filter((n) => n !== null && n !== undefined);
+  if (valid.length === 0) return null;
+  return Math.round(valid.reduce((sum, n) => sum + n, 0) / valid.length);
+}
+
+// Deterministic, not trusted to the LLM: average verdict points across all
+// tagged objections. Same formula the spec calls the "overall score" --
+// here it's one of three category scores instead, with the true overall
+// score being the average of all three categories (see below), so the two
+// numbers aren't just a duplicate of each other on screen.
+function objectionResolutionScore(objections) {
+  return average(objections.map((o) => VERDICT_POINTS[o.verdict] ?? null));
+}
+
+const NO_OBJECTIONS_RESULT = {
+  overall_summary:
+    "No objections were tagged during this call, so there's nothing to score yet. Try a pitch that mentions a price, a timeline, a competitor, or leaves room for a 'just send me info' brush-off.",
+  overall_score: null,
+  categories: { objection_resolution: null, response_specificity: null, discovery: null },
+  objections: [],
+  strengths: [],
+  areas_to_improve: [],
+};
+
 export async function generateScorecard(apiKey, objectionLog, transcriptLog) {
   if (objectionLog.length === 0) {
-    return {
-      overall_summary:
-        "No objections were tagged during this call, so there's nothing to score yet. Try a pitch that mentions a price, a timeline, a competitor, or leaves room for a 'just send me info' brush-off.",
-      objections: [],
-      strengths: [],
-      areas_to_improve: [],
-    };
+    return NO_OBJECTIONS_RESULT;
   }
 
   const transcriptText = transcriptLog
@@ -97,9 +133,26 @@ export async function generateScorecard(apiKey, objectionLog, transcriptLog) {
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error("LLM Gateway returned no content");
 
+  let parsed;
   try {
-    return extractJson(content);
+    parsed = extractJson(content);
   } catch (err) {
     throw new Error(`Failed to parse scorecard JSON (${err.message}). Raw content:\n${content}`);
   }
+
+  const objections = Array.isArray(parsed.objections) ? parsed.objections : [];
+  const categories = {
+    objection_resolution: objectionResolutionScore(objections),
+    response_specificity: clampScore(parsed.response_specificity_score),
+    discovery: clampScore(parsed.discovery_score),
+  };
+
+  return {
+    overall_summary: parsed.overall_summary ?? "",
+    overall_score: average(Object.values(categories)),
+    categories,
+    objections,
+    strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
+    areas_to_improve: Array.isArray(parsed.areas_to_improve) ? parsed.areas_to_improve : [],
+  };
 }
