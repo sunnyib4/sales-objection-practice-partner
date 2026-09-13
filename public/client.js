@@ -4,6 +4,36 @@
 
 const TARGET_SAMPLE_RATE = 24000;
 
+// --- Dark mode ------------------------------------------------------------
+// System preference is the default, applied purely via the
+// @media(prefers-color-scheme) CSS rules with no JS involved. Clicking the
+// toggle sets an explicit [data-theme] attribute that overrides the OS
+// setting (in either direction) and is remembered in localStorage; visiting
+// again with no stored preference falls back to system preference again.
+(function initTheme() {
+  try {
+    const saved = localStorage.getItem("theme");
+    if (saved === "light" || saved === "dark") {
+      document.documentElement.setAttribute("data-theme", saved);
+    }
+  } catch (_) { /* localStorage unavailable (private mode, etc.) -- system preference still works */ }
+})();
+
+function currentEffectiveTheme() {
+  const explicit = document.documentElement.getAttribute("data-theme");
+  if (explicit) return explicit;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+const themeToggleBtn = document.getElementById("themeToggle");
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    const next = currentEffectiveTheme() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch (_) { /* ignore */ }
+  });
+}
+
 const landingEl = document.getElementById("landing");
 const appEl = document.getElementById("app");
 const startFromLandingBtn = document.getElementById("startFromLanding");
@@ -430,7 +460,7 @@ function renderScoreSection(scorecard) {
         datasets: [
           {
             data: [scorecard.overall_score, 100 - scorecard.overall_score],
-            backgroundColor: [color, "#e2e5ec"],
+            backgroundColor: [color, getComputedStyle(document.documentElement).getPropertyValue("--track").trim() || "#e2e5ec"],
             borderWidth: 0,
           },
         ],
@@ -904,6 +934,43 @@ previewBtn.addEventListener("click", runPreview);
 startFromLandingBtn.addEventListener("click", enterApp);
 startFromLandingNavBtn.addEventListener("click", enterApp);
 backToLandingBtn.addEventListener("click", leaveApp);
+
+// Logo in the nav and footer -- scrolls to top rather than navigating
+// anywhere, since this is a single-page site with no separate "home".
+document.querySelectorAll(".logo-home").forEach((el) => {
+  el.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+});
+
+// --- Mobile hamburger menu ------------------------------------------------
+const hamburgerBtn = document.getElementById("hamburgerBtn");
+const mobileMenu = document.getElementById("mobileMenu");
+if (hamburgerBtn && mobileMenu) {
+  function setMobileMenuOpen(open) {
+    hamburgerBtn.classList.toggle("open", open);
+    mobileMenu.classList.toggle("open", open);
+    hamburgerBtn.setAttribute("aria-expanded", String(open));
+  }
+  hamburgerBtn.addEventListener("click", () => {
+    setMobileMenuOpen(!mobileMenu.classList.contains("open"));
+  });
+  // Closing after picking a link keeps the menu from still covering the
+  // section it just jumped to.
+  mobileMenu.querySelectorAll("a").forEach((a) => {
+    a.addEventListener("click", () => setMobileMenuOpen(false));
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setMobileMenuOpen(false);
+  });
+}
+
+// --- Scroll-to-top button --------------------------------------------------
+const scrollTopBtn = document.getElementById("scrollTopBtn");
+if (scrollTopBtn) {
+  window.addEventListener("scroll", () => {
+    scrollTopBtn.classList.toggle("visible", window.scrollY > 400);
+  });
+  scrollTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+}
 
 previewFromLandingBtn.addEventListener("click", () => {
   enterApp();
