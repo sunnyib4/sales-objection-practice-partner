@@ -157,6 +157,13 @@ const TOOLS = [
 const app = express();
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+// Anything that didn't match a real static file falls through to here --
+// serves the custom 404 page with the correct status code instead of
+// Express's plain-text default.
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(__dirname, "..", "public", "404.html"));
+});
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/call" });
 

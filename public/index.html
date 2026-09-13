@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pushback</title>
+  <meta name="description" content="Practice handling sales objections against an AI prospect that pushes back for real on price, timing, competitors, and more, then get a scored breakdown of what you handled well." />
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,6 +28,38 @@
       --navy: #0f172a;
       --card: #ffffff;
       --border: #e6e6f2;
+      --fill: #f6f7fb;   /* subtle card-alt background: score rows, tracker items, hover fills */
+      --track: #e2e5ec;  /* progress-bar / gauge-remainder track color */
+      color-scheme: light;
+    }
+    /* Dark theme: system preference by default (unless the user explicitly
+       chose "light" via the toggle), explicit [data-theme="dark"] always
+       wins so the toggle overrides the OS setting in both directions. */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: var(--navy);
+        --text: #eceef5;
+        --text-gray: #9b9bb5;
+        --card: #1a1a2c;
+        --border: #2d2d45;
+        --fill: #22223a;
+        --track: #2d2d48;
+        --accent: #3b82f6;
+        --accent-light: #60a5fa;
+        color-scheme: dark;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: var(--navy);
+      --text: #eceef5;
+      --text-gray: #9b9bb5;
+      --card: #1a1a2c;
+      --border: #2d2d45;
+      --fill: #22223a;
+      --track: #2d2d48;
+      --accent: #3b82f6;
+      --accent-light: #60a5fa;
+      color-scheme: dark;
     }
     body {
       font-family: "Plus Jakarta Sans", system-ui, sans-serif;
@@ -41,8 +74,8 @@
       font-size: 1rem;
       padding: 10px 20px;
       border-radius: 999px;
-      border: 1px solid var(--text);
-      background: var(--text);
+      border: 1px solid var(--accent);
+      background: var(--accent);
       color: white;
       cursor: pointer;
     }
@@ -50,8 +83,8 @@
     button.stop { background: #a11; border-color: #a11; }
     button.secondary {
       background: transparent;
-      color: #555;
-      border-color: #ccc;
+      color: var(--text-gray);
+      border-color: var(--border);
       font-size: 0.8rem;
       padding: 8px 12px;
       margin-left: 8px;
@@ -70,9 +103,26 @@
     /* --- Nav --- */
     .nav {
       display: flex; align-items: center; justify-content: space-between;
-      max-width: 1180px; margin: 0 auto; padding: 24px 36px;
+      max-width: 1180px; margin: 0 auto; padding: 18px 36px;
+      position: sticky; top: 0; z-index: 50;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s ease, border-color 0.2s ease;
     }
+    .skip-link {
+      position: absolute; top: -60px; left: 12px; z-index: 999;
+      background: var(--accent); color: #fff; padding: 10px 18px; border-radius: 8px;
+      text-decoration: none; font-weight: 700; font-size: 0.9rem;
+      transition: top 0.2s ease;
+    }
+    .skip-link:focus { top: 12px; }
+    #main-content:focus { outline: none; }
     .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1rem; }
+    .logo-home {
+      background: none; border: none; padding: 0; color: var(--text);
+      cursor: pointer; transition: opacity 0.15s ease;
+    }
+    .logo-home:hover { opacity: 0.75; }
     .nav-mark { width: 26px; height: 18px; position: relative; flex-shrink: 0; }
     .nav-mark span { position: absolute; width: 16px; height: 16px; border-radius: 999px; background: var(--text); }
     .nav-mark span:first-child { left: 0; top: 0; }
@@ -82,6 +132,59 @@
     .nav-links a:hover { color: var(--accent); }
     .nav button { font-size: 0.85rem; padding: 10px 20px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
     .nav button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(21, 21, 43, 0.18); }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .hamburger-btn {
+      display: none; width: 38px; height: 38px; border-radius: 50%; padding: 0;
+      align-items: center; justify-content: center;
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+    }
+    .hamburger-btn svg { display: block; width: 20px; height: 20px; flex-shrink: 0; }
+    .hamburger-btn .icon-close { display: none; }
+    .hamburger-btn.open .icon-open { display: none; }
+    .hamburger-btn.open .icon-close { display: block; }
+    .mobile-menu {
+      display: none; flex-direction: column;
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 4px 22px 12px;
+      box-shadow: 0 16px 30px rgba(21, 21, 43, 0.1);
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a {
+      font-size: 0.95rem; font-weight: 600; color: var(--text); text-decoration: none;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .mobile-menu a:last-child { border-bottom: none; }
+    @media (min-width: 861px) {
+      .mobile-menu { display: none !important; }
+    }
+    .scroll-top-btn {
+      position: fixed; right: 24px; bottom: 24px; z-index: 40;
+      width: 44px; height: 44px; border-radius: 50%; padding: 0;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      box-shadow: 0 10px 24px rgba(21, 21, 43, 0.15);
+      opacity: 0; transform: translateY(12px); pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s ease;
+    }
+    .scroll-top-btn.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .scroll-top-btn:hover { background: var(--fill); }
+    .scroll-top-btn svg { display: block; width: 18px; height: 18px; flex-shrink: 0; }
+    .theme-toggle {
+      width: 38px; height: 38px; border-radius: 50%; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .theme-toggle:hover { transform: translateY(-2px) rotate(15deg); box-shadow: 0 10px 20px rgba(21, 21, 43, 0.12); }
+    .theme-toggle svg { display: block; width: 17px; height: 17px; flex-shrink: 0; stroke: var(--text); fill: none; }
+    .theme-toggle .icon-light { display: none; }
+    [data-theme="dark"] .theme-toggle .icon-dark { display: none; }
+    [data-theme="dark"] .theme-toggle .icon-light { display: block; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .theme-toggle .icon-dark { display: none; }
+      :root:not([data-theme="light"]) .theme-toggle .icon-light { display: block; }
+    }
 
     /* --- Hero --- */
     .hero { padding-top: 20px; padding-bottom: 40px; }
@@ -178,12 +281,12 @@
       border-color: var(--accent-light);
     }
     .step-num {
-      width: 32px; height: 32px; border-radius: 50%; background: var(--text); color: #fff;
+      width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff;
       display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem;
       margin-bottom: 16px;
-      transition: background 0.2s ease;
+      transition: transform 0.2s ease;
     }
-    .step-card:hover .step-num { background: var(--accent); }
+    .step-card:hover .step-num { transform: scale(1.12); }
     .step-card h3 { font-size: 1.05rem; margin: 0 0 8px; }
     .step-card p { font-size: 0.85rem; color: var(--text-gray); line-height: 1.5; margin: 0; }
 
@@ -332,13 +435,33 @@
     .roadmap-col.now li::before { background: var(--accent); border-color: var(--accent); }
 
     /* --- Footer --- */
-    footer { border-top: 1px solid var(--border); padding: 40px 36px; max-width: 1180px; margin: 0 auto; }
-    .footer-grid { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 24px; }
-    .footer-links { display: flex; gap: 48px; flex-wrap: wrap; }
-    .footer-col h5 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-gray); margin: 0 0 10px; }
-    .footer-col a { display: block; font-size: 0.85rem; text-decoration: none; color: var(--text); margin-bottom: 8px; }
-    .footer-col a:hover { color: var(--accent); }
-    .footer-copy { font-size: 0.78rem; color: var(--text-gray); margin-top: 32px; }
+    footer { border-top: 1px solid var(--border); padding: 48px 36px 0; max-width: 1180px; margin: 0 auto; }
+    .footer-top { display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; padding-bottom: 36px; }
+    .footer-brand { max-width: 280px; }
+    .footer-tagline { font-size: 0.85rem; color: var(--text-gray); line-height: 1.5; margin: 12px 0 0; }
+    .footer-links { display: flex; gap: 56px; flex-wrap: wrap; }
+    .footer-col h5 { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-gray); margin: 0 0 14px; }
+    .footer-col a {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.88rem; text-decoration: none; color: var(--text); margin-bottom: 11px;
+      transition: color 0.15s ease, transform 0.15s ease;
+    }
+    .footer-col a:hover { color: var(--accent); transform: translateX(3px); }
+    .footer-col a svg { flex-shrink: 0; width: 14px; height: 14px; color: var(--text-gray); transition: color 0.15s ease; }
+    .footer-col a:hover svg { color: var(--accent); }
+    .footer-bottom {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      border-top: 1px solid var(--border); padding: 20px 0;
+    }
+    .footer-copy { font-size: 0.78rem; color: var(--text-gray); margin: 0; }
+    .footer-github-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      color: var(--text-gray); border: 1px solid var(--border);
+      transition: color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+    .footer-github-icon svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .footer-github-icon:hover { color: var(--text); border-color: var(--accent-light); transform: translateY(-2px); }
 
     /* Scroll-reveal: sections fade + slide up the first time they enter
        view (see the IntersectionObserver in client.js). Excludes the
@@ -352,7 +475,9 @@
       .card-row { grid-template-columns: 1fr 1fr; }
       .nav-links { display: none; }
       .section { padding: 44px 22px; }
-      .nav { padding: 20px 22px; }
+      .nav { padding: 16px 22px; }
+      #startFromLandingNav { display: none; }
+      .hamburger-btn { display: flex; }
     }
     @media (max-width: 520px) {
       .card-row { grid-template-columns: 1fr; }
@@ -451,7 +576,7 @@
     .tracker-item {
       display: flex; align-items: center; gap: 10px;
       padding: 8px 10px; border-radius: 10px;
-      background: #f7f7fb;
+      background: var(--fill);
       transition: background 0.25s ease;
     }
     .tracker-dot {
@@ -463,7 +588,7 @@
       opacity: 0; transform: scale(0.5); color: #0b5; font-weight: 800;
       transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    .tracker-item.raised { background: #fff; box-shadow: 0 4px 12px rgba(21,21,43,0.06); }
+    .tracker-item.raised { background: var(--card); box-shadow: 0 4px 12px rgba(21,21,43,0.06); }
     .tracker-item.raised .tracker-dot { opacity: 1; transform: scale(1.15); }
     .tracker-item.raised .tracker-label { color: var(--text); }
     .tracker-item.raised .tracker-check { opacity: 1; transform: scale(1); }
@@ -504,7 +629,7 @@
     }
     .line.prospect {
       margin-right: auto;
-      background: #f0f0f6;
+      background: var(--fill);
       color: var(--text);
       border-bottom-left-radius: 4px;
     }
@@ -537,7 +662,7 @@
        final transcript.agent/next transcript line arriving. */
     .typing-indicator {
       display: table;
-      background: #f0f0f6;
+      background: var(--fill);
       border-radius: 16px;
       border-bottom-left-radius: 4px;
       padding: 12px 16px;
@@ -590,11 +715,11 @@
     }
     .sc-filter-btn .count { opacity: 0.7; font-weight: 600; }
     .sc-filter-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(21,21,43,0.08); }
-    .sc-filter-btn.active { background: var(--text, #15152b); border-color: var(--text, #15152b); color: #fff; }
+    .sc-filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
     .sc-filter-btn.active .count { opacity: 0.85; }
 
     .sc-objection {
-      border-left: 4px solid #999; background: #fafafa; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+      border-left: 4px solid #999; background: var(--fill); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
       animation: bubbleIn 0.35s ease backwards; /* backwards: stay hidden during animation-delay, not flash visible */
       transition: transform 0.15s ease, box-shadow 0.15s ease, max-height 0.25s ease, opacity 0.25s ease, margin 0.25s ease, padding 0.25s ease;
     }
@@ -606,14 +731,14 @@
       opacity: 0; max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; overflow: hidden;
       border-width: 0; pointer-events: none;
     }
-    .sc-objection-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; color: #555; }
+    .sc-objection-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; color: var(--text-gray); }
     .sc-type-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.03em; }
     .sc-verdict {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 2px 10px; border-radius: 999px;
       font-size: 0.7rem; font-weight: 700; color: #fff; white-space: nowrap;
     }
-    .sc-prospect-line { margin-top: 8px; font-style: italic; color: #333; }
+    .sc-prospect-line { margin-top: 8px; font-style: italic; color: var(--text); }
     .sc-feedback { margin-top: 4px; line-height: 1.4; }
     .sc-list { margin-top: 16px; animation: bubbleIn 0.4s ease backwards; animation-delay: 0.25s; }
     .sc-list .sc-list-title { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
@@ -623,11 +748,11 @@
       margin-bottom: 6px; padding: 4px 6px; border-radius: 8px;
       transition: transform 0.15s ease, background 0.15s ease;
     }
-    .sc-list li:hover { transform: translateX(3px); background: #f7f7fb; }
+    .sc-list li:hover { transform: translateX(3px); background: var(--fill); }
     .sc-list li svg { flex-shrink: 0; margin-top: 2px; }
     .sc-list.strengths li svg { color: #0b5; }
     .sc-list.improve li svg { color: #d90; }
-    .sc-score-row { display: flex; align-items: center; justify-content: center; gap: 32px; flex-wrap: wrap; margin: 20px 0 24px; padding: 20px; background: #f6f7fb; border-radius: 14px; }
+    .sc-score-row { display: flex; align-items: center; justify-content: center; gap: 32px; flex-wrap: wrap; margin: 20px 0 24px; padding: 20px; background: var(--fill); border-radius: 14px; }
 
     /* Stat-card grid (replaces the old gauge+radar row) -- one prominent
        full-width "Overall" card with the arc gauge, then a category per
@@ -635,19 +760,19 @@
        than a radar chart is. */
     .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0 24px; }
     .stat-card {
-      background: #f6f7fb; border-radius: 14px; padding: 16px;
+      background: var(--fill); border-radius: 14px; padding: 16px;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(21, 21, 43, 0.1); }
     .stat-overall { grid-column: 1 / -1; }
-    .stat-label { font-size: 0.68rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    .stat-label { font-size: 0.68rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
     .stat-gauge-row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
     .stat-substats { display: flex; gap: 20px; flex-wrap: wrap; }
     .stat-substat { display: flex; flex-direction: column; }
     .stat-substat b { font-size: 1.15rem; font-weight: 800; color: var(--text, #15152b); line-height: 1.2; }
-    .stat-substat span { font-size: 0.68rem; color: #888; }
+    .stat-substat span { font-size: 0.68rem; color: var(--text-gray); }
     .stat-num-big { font-size: 1.7rem; font-weight: 800; line-height: 1; margin-bottom: 10px; }
-    .stat-bar { height: 6px; border-radius: 999px; background: #e2e5ec; overflow: hidden; }
+    .stat-bar { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
     .stat-bar-fill { height: 100%; width: 0%; border-radius: 999px; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
     @media (max-width: 480px) {
       .stat-grid { grid-template-columns: 1fr; }
@@ -657,27 +782,44 @@
     .sc-gauge-wrap:hover { transform: scale(1.05); }
     .sc-gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
     .sc-overall-num { font-size: 2.1rem; font-weight: 800; line-height: 1; }
-    .sc-overall-label { font-size: 0.7rem; color: #777; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+    .sc-overall-label { font-size: 0.7rem; color: var(--text-gray); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
     .sc-chart-wrap { width: 280px; max-width: 100%; aspect-ratio: 1 / 1; flex-shrink: 0; }
   </style>
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Skip to content</a>
   <section id="landing">
     <nav class="nav">
-      <div class="nav-brand">
+      <button class="nav-brand logo-home" id="logoHome" aria-label="Pushback -- scroll to top">
         <div class="nav-mark"><span></span><span></span></div>
         Pushback
-      </div>
+      </button>
       <ul class="nav-links">
         <li><a href="#objection-types">Objection types</a></li>
         <li><a href="#how-it-works">How it works</a></li>
         <li><a href="#roadmap">Roadmap</a></li>
         <li><a href="#about">About</a></li>
       </ul>
-      <button id="startFromLandingNav">Start Practice Call</button>
+      <div class="nav-right">
+        <button id="themeToggle" class="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+          <svg class="icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button id="startFromLandingNav">Start Practice Call</button>
+        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false" aria-controls="mobileMenu">
+          <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="mobile-menu" id="mobileMenu">
+        <a href="#objection-types">Objection types</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#about">About</a>
+      </div>
     </nav>
 
-    <div class="section hero">
+    <div class="section hero" id="main-content" tabindex="-1">
       <div class="hero-grid">
         <div>
           <div class="hero-eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Powered by AssemblyAI</div>
@@ -831,27 +973,54 @@
     </div>
 
     <footer class="reveal">
-      <div class="footer-grid">
-        <div class="nav-brand">
-          <div class="nav-mark"><span></span><span></span></div>
-          Pushback
+      <div class="footer-top">
+        <div class="footer-brand">
+          <button class="nav-brand logo-home" aria-label="Pushback -- scroll to top">
+            <div class="nav-mark"><span></span><span></span></div>
+            Pushback
+          </button>
+          <p class="footer-tagline">Practice sales objections against an AI prospect that pushes back for real, then see exactly what you handled well.</p>
         </div>
         <div class="footer-links">
           <div class="footer-col">
             <h5>Product</h5>
-            <a href="#" id="footerStart">Start a practice call</a>
-            <a href="https://github.com/sunnyib4/sales-objection-practice-partner" target="_blank" rel="noopener">GitHub repo</a>
+            <a href="#" id="footerStart">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.58.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.58 1 1 0 0 1-.25 1.01z"/></svg>
+              Start a practice call
+            </a>
+            <a href="https://github.com/sunnyib4/sales-objection-practice-partner" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.026 2.747-1.026.546 1.378.203 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"/></svg>
+              GitHub repo
+            </a>
           </div>
           <div class="footer-col">
             <h5>Built with</h5>
-            <a href="https://www.assemblyai.com/docs/voice-agents/voice-agent-api" target="_blank" rel="noopener">AssemblyAI Voice Agent API</a>
-            <a href="https://www.assemblyai.com/docs/llm-gateway/quickstart" target="_blank" rel="noopener">AssemblyAI LLM Gateway</a>
-            <a href="https://fly.io" target="_blank" rel="noopener">Fly.io</a>
+            <a href="https://www.assemblyai.com/docs/voice-agents/voice-agent-api" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              AssemblyAI Voice Agent API
+            </a>
+            <a href="https://www.assemblyai.com/docs/llm-gateway/quickstart" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
+              AssemblyAI LLM Gateway
+            </a>
+            <a href="https://fly.io" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+              Fly.io
+            </a>
           </div>
         </div>
       </div>
-      <div class="footer-copy">Built for the AssemblyAI Voice Agent Hackathon.</div>
+      <div class="footer-bottom">
+        <div class="footer-copy">&copy; 2026 Pushback. Built for the AssemblyAI Voice Agent Hackathon.</div>
+        <a class="footer-github-icon" href="https://github.com/sunnyib4/sales-objection-practice-partner" target="_blank" rel="noopener" aria-label="View source on GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.026 2.747-1.026.546 1.378.203 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"/></svg>
+        </a>
+      </div>
     </footer>
+
+    <button id="scrollTopBtn" class="scroll-top-btn" aria-label="Scroll to top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+    </button>
   </section>
 
   <section id="app" hidden>
