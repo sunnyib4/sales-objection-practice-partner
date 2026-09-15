@@ -20,6 +20,12 @@ For each tagged objection, find the salesperson's actual response to it in the t
 - "partially_handled": addressed it somewhat but stayed vague or generic, or only partly resolved it.
 - "fumbled": ignored the objection, was evasive, or caved/agreed to disengage instead of addressing it.
 
+For any objection judged "partially_handled" or "fumbled", also write:
+- better_response: a concrete, ready-to-say line the salesperson could have used instead, right in that exact moment, specific to what Jordan actually said. Not generic advice like "be more specific" or "ask a follow-up question" -- an actual quotable sentence or two they could say verbatim on the call.
+- next_step: a concrete action beyond just words, only if one would genuinely help (e.g. "offer to send a personalized ROI calculator," "schedule a technical demo," "follow up with a case study from a similar-sized client"). Set this to null if the fix is purely about what to say and no follow-up action is needed -- do not invent a next step just to fill the field.
+
+For objections judged "handled_well", set both better_response and next_step to null -- there's nothing to correct.
+
 Then, looking across the WHOLE call (not just objection responses), score two more dimensions from 0-100:
 - response_specificity_score: how often the salesperson's responses included concrete numbers, real timelines, or specific commitments, versus vague reassurance ("it's usually fine," "don't worry about it," "we can figure that out"). 100 = consistently specific and concrete throughout. 0 = consistently vague, no real numbers or specifics anywhere.
 - discovery_score: how often the salesperson asked genuine questions back to the prospect (about their situation, current setup, needs, timeline, budget process) instead of just defending or pitching. 100 = asked frequent, relevant discovery questions. 0 = never asked anything, purely defended or pitched the whole call.
@@ -38,7 +44,9 @@ Respond with ONLY a single JSON object, no markdown code fences, no commentary b
       "objection_type": "one of the tagged categories, exactly as given",
       "prospect_line": "the objection as the prospect raised it",
       "verdict": "handled_well" | "partially_handled" | "fumbled",
-      "feedback": "specific feedback string"
+      "feedback": "specific feedback string",
+      "better_response": "a ready-to-say quotable line, or null if verdict is handled_well",
+      "next_step": "a concrete follow-up action, or null if none is needed"
     }
   ],
   "strengths": ["string", "string"],

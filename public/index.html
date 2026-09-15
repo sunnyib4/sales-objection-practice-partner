@@ -593,11 +593,27 @@
     .tracker-item.raised .tracker-label { color: var(--text); }
     .tracker-item.raised .tracker-check { opacity: 1; transform: scale(1); }
 
-    #transcript {
-      margin-top: 24px;
+    .transcript-details { margin-top: 24px; }
+    .transcript-toggle {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      cursor: pointer; list-style: none; user-select: none;
+      padding: 12px 16px;
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 14px;
+      font-size: 0.85rem; font-weight: 700; color: var(--text);
+    }
+    .transcript-toggle::-webkit-details-marker { display: none; }
+    .transcript-toggle .sc-objection-chevron { color: var(--text-gray); }
+    .transcript-details[open] .transcript-toggle {
+      border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+    }
+    .transcript-details[open] .transcript-toggle .sc-objection-chevron { transform: rotate(180deg); }
+    #transcript {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 14px 14px;
       padding: 18px;
       height: 360px;
       overflow-y: auto;
@@ -731,15 +747,46 @@
       opacity: 0; max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; overflow: hidden;
       border-width: 0; pointer-events: none;
     }
-    .sc-objection-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; color: var(--text-gray); }
-    .sc-type-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.03em; }
+    .sc-objection-head {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; color: var(--text-gray);
+      cursor: pointer; list-style: none; user-select: none;
+    }
+    .sc-objection-head::-webkit-details-marker { display: none; }
+    .sc-objection-head-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; flex: 1 1 auto; }
+    .sc-objection-chevron { flex-shrink: 0; transition: transform 0.2s ease; color: var(--text-gray); }
+    .sc-objection[open] .sc-objection-chevron { transform: rotate(180deg); }
+    .sc-type-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.03em; flex-shrink: 0; }
     .sc-verdict {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 2px 10px; border-radius: 999px;
       font-size: 0.7rem; font-weight: 700; color: #fff; white-space: nowrap;
+      flex-shrink: 0;
     }
-    .sc-prospect-line { margin-top: 8px; font-style: italic; color: var(--text); }
-    .sc-feedback { margin-top: 4px; line-height: 1.4; }
+    .sc-prospect-line-inline {
+      font-style: italic; font-weight: 500; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      min-width: 60px; flex: 1 1 160px;
+    }
+    .sc-objection-body { margin-top: 8px; animation: bubbleIn 0.2s ease; }
+    .sc-feedback { margin-top: 0; line-height: 1.4; }
+    .sc-better-response {
+      margin-top: 10px; padding: 10px 12px;
+      background: var(--card); border: 1px dashed var(--border); border-radius: 8px;
+    }
+    .sc-better-label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--accent); margin-bottom: 5px;
+    }
+    .sc-better-label svg { flex-shrink: 0; width: 13px; height: 13px; }
+    .sc-better-text { font-size: 0.85rem; font-style: italic; color: var(--text); line-height: 1.4; }
+    .sc-next-step {
+      display: flex; align-items: flex-start; gap: 6px;
+      margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+      font-size: 0.8rem; color: var(--text-gray); line-height: 1.4;
+    }
+    .sc-next-step svg { flex-shrink: 0; width: 13px; height: 13px; margin-top: 2px; color: var(--accent); }
     .sc-list { margin-top: 16px; animation: bubbleIn 0.4s ease backwards; animation-delay: 0.25s; }
     .sc-list .sc-list-title { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
     .sc-list ul { margin: 8px 0 0; padding-left: 0; list-style: none; }
@@ -1085,7 +1132,13 @@
     </div>
 
     <button id="preview" class="secondary">Preview with sample data (no call, no API usage)</button>
-    <div id="transcript"></div>
+    <details id="transcriptDetails" class="transcript-details">
+      <summary class="transcript-toggle">
+        <span>View full transcript</span>
+        <svg class="sc-objection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
+      <div id="transcript"></div>
+    </details>
     <div id="scorecard" hidden></div>
   </section>
 

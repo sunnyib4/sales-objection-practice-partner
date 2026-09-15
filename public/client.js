@@ -45,6 +45,7 @@ const statusEl = document.getElementById("status");
 const toggleBtn = document.getElementById("toggle");
 const previewBtn = document.getElementById("preview");
 const transcriptEl = document.getElementById("transcript");
+const transcriptDetailsEl = document.getElementById("transcriptDetails");
 const scorecardEl = document.getElementById("scorecard");
 
 const callSubtitleEl = document.getElementById("callSubtitle");
@@ -478,6 +479,9 @@ function renderScoreSection(scorecard) {
 function renderScorecard(scorecard) {
   scorecardEl.innerHTML = "";
   scorecardEl.hidden = false;
+  // The score/feedback is the headline info -- collapse the transcript
+  // back down so it doesn't compete for scroll space with it.
+  if (transcriptDetailsEl) transcriptDetailsEl.open = false;
 
   const summary = document.createElement("p");
   summary.className = "sc-summary";
@@ -495,21 +499,42 @@ function renderScorecard(scorecard) {
   }
 
   objections.forEach((obj, i) => {
-    const row = document.createElement("div");
+    const row = document.createElement("details");
     row.className = `sc-objection sc-${obj.verdict}`;
     row.dataset.verdict = obj.verdict;
     row.style.animationDelay = `${i * 0.08}s`;
+    // Collapsed by default for every verdict -- the summary line below
+    // already shows the badges + quoted objection, which is enough to
+    // scan the whole call without expanding anything.
     const typeColor = OBJECTION_COLORS[obj.objection_type] || OBJECTION_COLORS.other;
     const verdictColor = VERDICT_COLOR[obj.verdict] || "#999";
     row.innerHTML = `
-      <div class="sc-objection-head">
-        <span class="sc-type-badge" style="background:${typeColor}">${escapeHtml(
-          (obj.objection_type || "other").replace("_", " ")
-        )}</span>
-        <span class="sc-verdict" style="background:${verdictColor}">${escapeHtml(VERDICT_LABEL[obj.verdict] || obj.verdict)}</span>
+      <summary class="sc-objection-head">
+        <span class="sc-objection-head-left">
+          <span class="sc-type-badge" style="background:${typeColor}">${escapeHtml(
+            (obj.objection_type || "other").replace("_", " ")
+          )}</span>
+          <span class="sc-verdict" style="background:${verdictColor}">${escapeHtml(VERDICT_LABEL[obj.verdict] || obj.verdict)}</span>
+          <span class="sc-prospect-line-inline">"${escapeHtml(obj.prospect_line)}"</span>
+        </span>
+        <svg class="sc-objection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
+      <div class="sc-objection-body">
+        <div class="sc-feedback">${escapeHtml(obj.feedback)}</div>
+        ${obj.better_response ? `
+        <div class="sc-better-response">
+          <div class="sc-better-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            Try this instead
+          </div>
+          <div class="sc-better-text">"${escapeHtml(obj.better_response)}"</div>
+          ${obj.next_step ? `
+          <div class="sc-next-step">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <span>${escapeHtml(obj.next_step)}</span>
+          </div>` : ""}
+        </div>` : ""}
       </div>
-      <div class="sc-prospect-line">"${escapeHtml(obj.prospect_line)}"</div>
-      <div class="sc-feedback">${escapeHtml(obj.feedback)}</div>
     `;
     scorecardEl.appendChild(row);
   });
@@ -705,7 +730,9 @@ function connect() {
   const industrySelect = document.getElementById("industrySelect");
   const industry = industrySelect ? industrySelect.value : "logistics";
   if (callSubtitleEl) callSubtitleEl.textContent = SCENARIO_SUBTITLES[industry] || SCENARIO_SUBTITLES.logistics;
-  ws = new WebSocket(`${proto}//${location.host}/call?industry=${encodeURIComponent(industry)}`);
+  const wsUrl = `${proto}//${location.host}/call?industry=${encodeURIComponent(industry)}`;
+  console.log("[DIAGNOSTIC] industrySelect element found:", !!industrySelect, "| .value read:", industry, "| WS URL:", wsUrl);
+  ws = new WebSocket(wsUrl);
   ws.binaryType = "arraybuffer";
 
   ws.onopen = () => setStatus("connecting to prospect...");
@@ -792,6 +819,9 @@ async function startCall() {
   pendingObjectionTags = [];
   typingIndicatorEl = null; // transcriptEl.innerHTML reset already dropped the DOM node
   resetObjectionTracker();
+  // Open live captions for the call itself; renderScorecard() collapses
+  // this back down once the call ends and the scorecard takes over.
+  if (transcriptDetailsEl) transcriptDetailsEl.open = true;
   try {
     await startMic();
   } catch (err) {
@@ -866,45 +896,52 @@ const SAMPLE_TRANSCRIPT = [
 ];
 
 const SAMPLE_SCORECARD = {
-  overall_summary: "The salesperson handled the pricing objection well by offering a specific ROI estimate, but fumbled the timing objection with a hollow reassurance about integration speed instead of addressing the prospect's specific pain points. While the call showed some discovery early on, the salesperson failed to ask deep questions during the competitor and send_info objections, relying too heavily on generic reassurances and generic offers.",
-  overall_score: 38,
-  categories: { objection_resolution: 38, response_specificity: 45, discovery: 30 },
+  overall_summary: "The salesperson successfully opened with a relevant hook and a specific price point, but significantly underperformed when handling three of four objections. While they initiatively offered an ROI estimate for the budget concern, they failed to provide a timeline for integration, made a vague claim about competitor support, and ultimately fumbled the request for materials by offering a call instead of delivering the requested info before the next meeting.",
+  overall_score: 43,
+  categories: { objection_resolution: 25, response_specificity: 55, discovery: 50 },
   objections: [
     {
       objection_type: "price",
       prospect_line: "That's a tough sell right now. Budget for new tools needs VP sign-off and we're tight this quarter.",
-      verdict: "handled_well",
-      feedback: "The salesperson directly answered the concern by offering a specific action: 'put together a quick ROI estimate off your actual fuel spend.' This provides the concrete numbers and data VP needs to justify the cost.",
+      verdict: "partially_handled",
+      feedback: "The salesperson jumped immediately to offering a solution (ROI estimate) without first validating the price as the actual blocker or understanding the VP's decision criteria. They missed an opportunity to drill into the 'tight this quarter' constraint to find a flexibility or a pilot program path.",
+      better_response: "Is the budget itself the blocker, or is it more about getting something concrete enough for VP sign-off? If it's the latter, could we run a trial with your actual weekly data to build the ROI case without needing full budget approval first?",
+      next_step: null,
     },
     {
       objection_type: "timing",
-      prospect_line: "How fast could we actually get this running? Last vendor we used took months to integration and it was a mess.",
+      prospect_line: "How fast could we actually get this running? Last vendor we used took months to integrate and it was a mess.",
       verdict: "fumbled",
-      feedback: "The salesperson ignored the specific pain point about messy integrations and 'took months' with a generic statement ('it's usually a pretty smooth process'). They should have asked about the vendor's process or offered a specific timeline.",
+      feedback: "The response was evasive and unhelpful, saying 'it's usually a pretty smooth process' which directly contradicted the prospect's fear without backing it up with a specific timeline or referencing integration timeframes.",
+      better_response: "The integration is typically done in under a week, so you should see the dashboard populated and driving your first optimized route within ten days of signing.",
+      next_step: "Offer to share a 2-page case study of a similar 40-truck client showing their specific implementation timeline to reduce their integration anxiety.",
     },
     {
       objection_type: "competitor",
       prospect_line: "We're also looking at RouteworksAI, so I want to see how you compare.",
       verdict: "partially_handled",
-      feedback: "The salesperson provided some specifics ('integrates directly with your existing dispatch software instead of requiring a swap', 'support is 24/7') but could have been stronger by asking what specific features in RouteworksAI are driving their interest.",
+      feedback: "The response provided two advantages (direct integration vs swap, 24/7 support) but focused on feature comparison rather than business value. It failed to connect these specific differentiators back to Jordan's pain points, like the 'messy integration' mentioned earlier or cost avoidance on software replacement.",
+      better_response: "Sounds like you want to avoid the integration mess your last vendor created. Our direct API connection means you can plug in your current dispatch software in under 48 hours, without the re-entry costs a full swap usually creates.",
+      next_step: null,
     },
     {
       objection_type: "send_info",
       prospect_line: "I've got another meeting starting soon, just send me some information instead.",
       verdict: "fumbled",
-      feedback: "Instead of asking why they prefer a PDF or what specific info they need, the salesperson immediately pivoted to a different ask ('could we grab fifteen minutes later this week') without validating the objection or understanding the underlying barrier.",
+      feedback: "This was a missed opportunity. Instead of simply agreeing and sending the info immediately to keep momentum, the salesperson pushed for a meeting ('could we grab fifteen minutes later this week') which works against the prospect's stated urgency ('meeting starting soon').",
+      better_response: "Got it, I'll email you the side-by-side comparison and integration timeline by noon today so you have the concrete data ready for your next meeting.",
+      next_step: null,
     },
   ],
   strengths: [
-    "Successfully converted a price objection into a concrete offer to create a personalized ROI estimate.",
-    "Connected the ROI estimate offer directly to the prospect's stated need for VP sign-off and real numbers.",
-    "Provided specific comparative advantages regarding integration types and support hours when the competitor was mentioned.",
+    "Opened with a strong value proposition and a specific price point that established credibility immediately.",
+    "Initiatively offered a personalized ROI calculation in response to the budget objection, avoiding a flat refusal.",
+    "Asked a discovery question early on about fleet size before pitching.",
   ],
   areas_to_improve: [
-    "When prospects raise specific concerns like past integration issues, avoid generic reassurances and instead ask questions to explore that specific pain point.",
-    "Instead of dismissing a request for 'information' to send, ask what exactly they want in the PDF to uncover their needs.",
-    "Increase the frequency of genuine discovery questions throughout the call rather than primarily pitching or defending the solution.",
-    "Be more specific on timelines; instead of vague 'usually a smooth process,' state 'we can typically start integration within 3 days.'",
+    "Frequently avoided giving concrete timelines, letting the prospect fill the gap with worst-case assumptions (e.g. the generic 'usually smooth process' on integration).",
+    "Failed to connect specific feature comparisons back to the prospect's stated pain points when addressing the competitor.",
+    "Gave up too quickly on delivering requested materials directly, instead complicating the process with a future meeting request.",
   ],
 };
 

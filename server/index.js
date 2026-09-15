@@ -207,6 +207,7 @@ wss.on("connection", (browserWs, req) => {
 
   agentWs.on("open", () => {
     console.log("[agent] connected, sending session.update");
+    console.log(`[DIAGNOSTIC] req.url was: "${req.url}" | requestedIndustry parsed: "${requestedIndustry}" | industry variable used for prompt selection: "${industry}"`);
     sendToAgent({
       type: "session.update",
       session: {
@@ -214,6 +215,19 @@ wss.on("connection", (browserWs, req) => {
         greeting: GREETING,
         input: {
           format: { encoding: "audio/pcm" },
+          // vad_threshold raised from the 0.5 default -- less sensitive to
+          // quiet/ambient background noise being misread as speech.
+          //
+          // min_silence/max_silence now deliberately set (AssemblyAI's own
+          // suggested starting point) to cut the pause before Jordan
+          // responds -- this is the actual latency lever per AssemblyAI's
+          // docs' own latency breakdown, where the silence-check/fallback
+          // wait was the single biggest chunk of the delay. Trade-off
+          // accepted knowingly: this disables adaptive pacing and
+          // entity-aware waiting for the rest of the session, not just this
+          // turn -- Jordan won't adjust patience based on how the user is
+          // speaking (rambling vs. crisp) for any turn after this fires.
+          turn_detection: { vad_threshold: 0.65, min_silence: 100, max_silence: 1000 },
         },
         output: {
           voice: VOICE_ID,
