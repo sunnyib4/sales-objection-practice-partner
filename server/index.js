@@ -67,6 +67,7 @@ Logging (does not change how you talk, just happens alongside it):
 - Call the log_objection tool the moment you raise or reference one of your real objections: price/budget, timing, wanting them to just send information instead of continuing the call, or the competitor ${competitor}.
 - Also call it, rarely, for other genuine pushback or reluctance to move forward that doesn't fit those four categories (general distrust, wanting to think it over, needing someone else's sign-off), tagged as "other".
 - Do NOT call the tool for confusion, mishearing something, or asking a clarifying question, like "what do you mean," "what exactly is that," "can you say that again," or "what do you say." Those are a normal part of any conversation, not objections, and should never be logged, not even as "other."
+- Do NOT call the tool for neutral engagement or invitations to keep talking, like "I'm listening," "okay, go on," "what've you got for me," or "sure, tell me more." Those just mean the call is continuing normally, not that you're pushing back -- there has to be actual reluctance, skepticism, or a real concern in the line for it to count, even under "other."
 - This is a background action. Never mention the tool, logging, or anything technical out loud. You are just a person on a phone call.`;
 }
 
@@ -124,7 +125,7 @@ const TOOLS = [
     type: "function",
     name: "log_objection",
     description:
-      "Call this immediately whenever you (Jordan) raise or reference a real sales objection in the conversation: price or budget, timing/why switch now, wanting them to just send information instead of continuing the call, the competitor RouteworksAI, or other genuine pushback/reluctance to move forward. Call it every single time you do this, right as you say it. Do NOT call this for confusion, mishearing something, or clarifying questions like 'what do you mean' or 'can you repeat that'; those are not objections. This never changes how you speak. It's a silent background action.",
+      "Call this immediately whenever you (Jordan) raise or reference a real sales objection in the conversation: price or budget, timing/why switch now, wanting them to just send information instead of continuing the call, the competitor RouteworksAI, or other genuine pushback/reluctance to move forward. Call it every single time you do this, right as you say it. Do NOT call this for confusion, mishearing something, or clarifying questions like 'what do you mean' or 'can you repeat that'; those are not objections. Do NOT call this for neutral engagement either, like 'I'm listening,' 'okay, go on,' or 'what've you got for me' -- there has to be actual reluctance or a real concern in the line, not just the call continuing normally. This never changes how you speak. It's a silent background action.",
     parameters: {
       type: "object",
       properties: {
@@ -141,8 +142,9 @@ const TOOLS = [
             "move forward that doesn't fit the above (general distrust, wanting to think " +
             "it over, needing someone else's approval). Use this rarely. Never use 'other', or " +
             "call this tool at all, for confusion, mishearing, or clarifying questions (e.g. " +
-            "'what do you mean,' 'what exactly is that,' asking them to repeat themselves). " +
-            "Those are not objections.",
+            "'what do you mean,' 'what exactly is that,' asking them to repeat themselves), or " +
+            "for neutral engagement/invitations to keep talking (e.g. 'I'm listening,' 'go on,' " +
+            "'what've you got for me'). Those are not objections.",
         },
         your_line: {
           type: "string",
@@ -206,7 +208,8 @@ wss.on("connection", (browserWs, req) => {
   });
 
   agentWs.on("open", () => {
-    console.log("[agent] connected, sending session.update");
+    const turnDetectionConfig = { vad_threshold: 0.5, min_silence: 1000, max_silence: 3000 };
+    console.log("[agent] connected, sending session.update, turn_detection:", turnDetectionConfig);
     console.log(`[DIAGNOSTIC] req.url was: "${req.url}" | requestedIndustry parsed: "${requestedIndustry}" | industry variable used for prompt selection: "${industry}"`);
     sendToAgent({
       type: "session.update",
@@ -215,19 +218,17 @@ wss.on("connection", (browserWs, req) => {
         greeting: GREETING,
         input: {
           format: { encoding: "audio/pcm" },
-          // vad_threshold raised from the 0.5 default -- less sensitive to
-          // quiet/ambient background noise being misread as speech.
+          // vad_threshold back to the 0.5 default.
           //
-          // min_silence/max_silence now deliberately set (AssemblyAI's own
-          // suggested starting point) to cut the pause before Jordan
-          // responds -- this is the actual latency lever per AssemblyAI's
-          // docs' own latency breakdown, where the silence-check/fallback
-          // wait was the single biggest chunk of the delay. Trade-off
-          // accepted knowingly: this disables adaptive pacing and
-          // entity-aware waiting for the rest of the session, not just this
-          // turn -- Jordan won't adjust patience based on how the user is
-          // speaking (rambling vs. crisp) for any turn after this fires.
-          turn_detection: { vad_threshold: 0.65, min_silence: 100, max_silence: 1000 },
+          // min_silence/max_silence deliberately set well above the
+          // "adaptive" default so Jordan waits out a mid-sentence pause
+          // instead of jumping in early -- per AssemblyAI's own docs
+          // ("Setting min_silence or max_silence turns off the adaptive
+          // pacing and entity-aware waiting ... for the rest of the
+          // session. Prefer leaving them unset."), this knowingly trades
+          // away that adaptive/entity-aware behavior for the rest of the
+          // session in exchange for reliably finishable takes.
+          turn_detection: turnDetectionConfig,
         },
         output: {
           voice: VOICE_ID,
@@ -272,10 +273,16 @@ wss.on("connection", (browserWs, req) => {
       case "input.speech.started":
         // Prospect should stop talking immediately (barge-in) -- tell the
         // browser to flush its playback queue.
+        console.log(`[TIMING] input.speech.started @ ${Date.now()}`, JSON.stringify(msg));
         sendToBrowser({ type: "barge_in" });
         break;
 
       case "transcript.user":
+        // Full message dumped (not just .text) so we can see whatever
+        // timing/confidence fields AssemblyAI actually attaches -- our own
+        // receipt timestamp only tells us when WE got the message, not when
+        // the underlying silence was measured.
+        console.log(`[TIMING] transcript.user @ ${Date.now()}:`, JSON.stringify(msg));
         transcriptLog.push({ speaker: "you", text: msg.text });
         sendToBrowser({ type: "transcript", speaker: "you", text: msg.text, final: true });
         break;
@@ -289,6 +296,7 @@ wss.on("connection", (browserWs, req) => {
         // Jordan has started generating a reply -- audio/text haven't
         // arrived yet. Forwarded so the browser can show a "typing..."
         // indicator instead of a dead silence while it waits.
+        console.log(`[TIMING] reply.started @ ${Date.now()}:`, JSON.stringify(msg));
         sendToBrowser({ type: "reply_started" });
         break;
 
@@ -338,8 +346,12 @@ wss.on("connection", (browserWs, req) => {
         break;
 
       default:
-        // transcript.user.delta / transcript.agent.delta / reply.started /
-        // reply.done etc. -- ignore for the bare-loop test.
+        // Temporarily logged instead of silently ignored -- diagnosing the
+        // "Jordan cuts me off" report needs to see whatever interim/delta
+        // or turn-timing event types AssemblyAI sends that we don't
+        // currently handle, in case one of them carries the real silence
+        // duration our own receipt timestamps can't show.
+        console.log(`[TIMING] (unhandled) ${msg.type} @ ${Date.now()}:`, JSON.stringify(msg));
         break;
     }
   });

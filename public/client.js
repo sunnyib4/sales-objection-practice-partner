@@ -63,8 +63,20 @@ const SCENARIO_SUBTITLES = {
   realestate: "Managing Broker · Real Estate",
 };
 
+// Reads the landing page's scenario dropdown and syncs the call card's
+// name/role display to it. Purely client-side -- the dropdown value is
+// already known synchronously, no need to wait on any server response.
+// Called both the instant the app screen appears and again right before
+// the call connects, so there's never a frame showing the hardcoded
+// "Logistics" default markup from index.html for a different scenario.
+function applyScenarioSubtitle() {
+  const industrySelect = document.getElementById("industrySelect");
+  const industry = industrySelect ? industrySelect.value : "logistics";
+  if (callSubtitleEl) callSubtitleEl.textContent = SCENARIO_SUBTITLES[industry] || SCENARIO_SUBTITLES.logistics;
+  return industry;
+}
+
 let micMuted = false;
-let speakerMuted = false;
 let callTimerInterval = null;
 let callStartTimestamp = null;
 
@@ -91,6 +103,7 @@ function updateCallTimerDisplay() {
 }
 
 function enterApp() {
+  applyScenarioSubtitle();
   landingEl.hidden = true;
   appEl.hidden = false;
 }
@@ -275,8 +288,19 @@ const OBJECTION_COLORS = {
 
 // --- Playback scheduling ----------------------------------------------------
 let playbackContext = null;
+let outputGainNode = null;
 let nextPlayTime = 0;
 let scheduledSources = [];
+
+// Phone-style earpiece/speaker switch, not a mute: Jordan is always audible,
+// just quieter (earpiece) or louder (speakerphone). NORMAL is the default.
+const NORMAL_GAIN = 0.35;
+const SPEAKER_GAIN = 1.0;
+let speakerOn = false;
+
+function currentOutputGain() {
+  return speakerOn ? SPEAKER_GAIN : NORMAL_GAIN;
+}
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -655,9 +679,11 @@ function int16ToFloat32(int16Array) {
 }
 
 function playAudioChunk(arrayBuffer) {
-  if (speakerMuted) return; // drop the chunk entirely -- no backlog to play when unmuted
   if (!playbackContext) {
     playbackContext = new (window.AudioContext || window.webkitAudioContext)();
+    outputGainNode = playbackContext.createGain();
+    outputGainNode.gain.value = currentOutputGain();
+    outputGainNode.connect(playbackContext.destination);
     nextPlayTime = playbackContext.currentTime;
   }
   const int16 = new Int16Array(arrayBuffer);
@@ -667,7 +693,7 @@ function playAudioChunk(arrayBuffer) {
 
   const source = playbackContext.createBufferSource();
   source.buffer = audioBuffer;
-  source.connect(playbackContext.destination);
+  source.connect(outputGainNode);
 
   const startAt = Math.max(nextPlayTime, playbackContext.currentTime);
   source.start(startAt);
@@ -690,25 +716,35 @@ function flushPlayback() {
 
 // --- Mic capture -------------------------------------------------------------
 async function startMic() {
-  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  // autoGainControl matters most here: a quiet laptop mic can leave real
+  // speech below the VAD's energy threshold, which reads as silence
+  // mid-sentence no matter how min_silence/max_silence are tuned -- this is
+  // a signal-gain fix, distinct from the noise-suppression constraints
+  // reverted earlier for a background-noise problem that didn't apply.
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  });
   micContext = new (window.AudioContext || window.webkitAudioContext)();
   micSource = micContext.createMediaStreamSource(micStream);
 
-  // ScriptProcessorNode is deprecated but universally supported; fine for an
-  // MVP loop test. bufferSize 4096 @ typical 48kHz input is ~85ms per chunk.
-  micProcessor = micContext.createScriptProcessor(4096, 1, 1);
+  // AudioWorkletNode runs mic capture on the browser's dedicated real-time
+  // audio thread instead of the main thread (see mic-processor.js) -- fixes
+  // words/syllables silently getting dropped from what's sent to AssemblyAI
+  // whenever the main thread is busy (DOM updates, Chart.js, JSON parsing)
+  // during a call, which the ScriptProcessorNode this replaces was exposed to.
+  await micContext.audioWorklet.addModule("mic-processor.js");
+  micProcessor = new AudioWorkletNode(micContext, "mic-capture-processor");
 
-  micProcessor.onaudioprocess = (event) => {
+  micProcessor.port.onmessage = (event) => {
     if (!running || micMuted || !ws || ws.readyState !== WebSocket.OPEN) return;
-    const input = event.inputBuffer.getChannelData(0);
-    const resampled = downsample(input, micContext.sampleRate, TARGET_SAMPLE_RATE);
+    const resampled = downsample(event.data, micContext.sampleRate, TARGET_SAMPLE_RATE);
     const pcm16 = floatTo16BitPCM(resampled);
     ws.send(pcm16);
   };
 
   // Route through a muted gain node so we don't hear our own mic, while still
   // keeping the processing graph alive (some browsers require a destination
-  // connection for onaudioprocess to fire).
+  // connection for the worklet to keep processing).
   const silentGain = micContext.createGain();
   silentGain.gain.value = 0;
   micSource.connect(micProcessor);
@@ -727,11 +763,9 @@ function stopMic() {
 // --- WebSocket to our backend -------------------------------------------------
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  const industrySelect = document.getElementById("industrySelect");
-  const industry = industrySelect ? industrySelect.value : "logistics";
-  if (callSubtitleEl) callSubtitleEl.textContent = SCENARIO_SUBTITLES[industry] || SCENARIO_SUBTITLES.logistics;
+  const industry = applyScenarioSubtitle();
   const wsUrl = `${proto}//${location.host}/call?industry=${encodeURIComponent(industry)}`;
-  console.log("[DIAGNOSTIC] industrySelect element found:", !!industrySelect, "| .value read:", industry, "| WS URL:", wsUrl);
+  console.log("[DIAGNOSTIC] industry used for WS URL:", industry, "| WS URL:", wsUrl);
   ws = new WebSocket(wsUrl);
   ws.binaryType = "arraybuffer";
 
@@ -798,7 +832,7 @@ function showStartControl() {
   muteMicBtn.hidden = true;
   muteSpeakerBtn.hidden = true;
   setMicMuted(false);
-  setSpeakerMuted(false);
+  setSpeakerMode(false);
 }
 
 function setMicMuted(muted) {
@@ -806,9 +840,14 @@ function setMicMuted(muted) {
   muteMicBtn.classList.toggle("muted", muted);
 }
 
-function setSpeakerMuted(muted) {
-  speakerMuted = muted;
-  muteSpeakerBtn.classList.toggle("muted", muted);
+// Toggles between "Normal" (quiet, earpiece-style) and "Speaker" (full
+// volume) -- unlike the mic mute button, Jordan is never silenced.
+function setSpeakerMode(isSpeakerOn) {
+  speakerOn = isSpeakerOn;
+  muteSpeakerBtn.classList.toggle("speaker-on", isSpeakerOn);
+  muteSpeakerBtn.title = isSpeakerOn ? "Switch to Normal" : "Switch to Speaker";
+  muteSpeakerBtn.setAttribute("aria-label", isSpeakerOn ? "Switch to Normal" : "Switch to Speaker");
+  if (outputGainNode) outputGainNode.gain.value = currentOutputGain();
 }
 
 async function startCall() {
@@ -855,7 +894,7 @@ function requestEndCall() {
 toggleBtn.addEventListener("click", startCall);
 endCallBtn.addEventListener("click", requestEndCall);
 muteMicBtn.addEventListener("click", () => setMicMuted(!micMuted));
-muteSpeakerBtn.addEventListener("click", () => setSpeakerMuted(!speakerMuted));
+muteSpeakerBtn.addEventListener("click", () => setSpeakerMode(!speakerOn));
 
 // --- Zero-cost UI preview -----------------------------------------------
 // Replays canned sample data through the exact same rendering functions a
