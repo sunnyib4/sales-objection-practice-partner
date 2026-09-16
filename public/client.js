@@ -678,7 +678,13 @@ function int16ToFloat32(int16Array) {
   return out;
 }
 
-function playAudioChunk(arrayBuffer) {
+// iOS Safari suspends a new AudioContext until it's both created AND
+// resumed directly inside a user-gesture call stack -- created lazily on
+// the first incoming audio chunk (a WebSocket message, not a gesture), it
+// stays silently suspended forever on iOS. Call this eagerly from the
+// Start-call click handler itself so creation+resume happen in-gesture;
+// playAudioChunk then just reuses whatever this already set up.
+function ensurePlaybackContext() {
   if (!playbackContext) {
     playbackContext = new (window.AudioContext || window.webkitAudioContext)();
     outputGainNode = playbackContext.createGain();
@@ -686,6 +692,13 @@ function playAudioChunk(arrayBuffer) {
     outputGainNode.connect(playbackContext.destination);
     nextPlayTime = playbackContext.currentTime;
   }
+  if (playbackContext.state === "suspended") {
+    playbackContext.resume().catch(() => {});
+  }
+}
+
+function playAudioChunk(arrayBuffer) {
+  ensurePlaybackContext();
   const int16 = new Int16Array(arrayBuffer);
   const float32 = int16ToFloat32(int16);
   const audioBuffer = playbackContext.createBuffer(1, float32.length, TARGET_SAMPLE_RATE);
@@ -851,6 +864,10 @@ function setSpeakerMode(isSpeakerOn) {
 }
 
 async function startCall() {
+  // Must happen synchronously in this click handler, before any await --
+  // iOS Safari only allows creating/resuming an AudioContext for playback
+  // while still inside the user-gesture call stack.
+  ensurePlaybackContext();
   scorecardEl.hidden = true;
   scorecardEl.innerHTML = "";
   transcriptEl.innerHTML = "";
