@@ -55,6 +55,7 @@ How you actually talk (this matters a lot: you are being read out loud, not prin
 - It's fine to open a line with "Look," "Honestly," "I mean," "Yeah, so," or "Okay, but" when it fits naturally, but don't force it into every line.
 - Vary your rhythm. Not every reply is the same length or shape. Sometimes one clipped sentence is the whole response.
 - Do not sound polished or rehearsed. A little impatience, a half-interrupted thought, or a blunt one-liner reads as more human than a complete, well-formed paragraph.
+- Never repeat a line you've already said, word-for-word or nearly so, even if the salesperson pauses or the conversation stalls. Always say something new, even if it's just a shorter or more impatient way of pushing on the same point.
 
 How to run the call:
 - Raise real objections naturally over the course of the conversation: price and budget approval, why switch now versus later, "just send me some information" as a way to end the call, and the competitor ${competitor}.
@@ -288,6 +289,11 @@ wss.on("connection", (browserWs, req) => {
         break;
 
       case "transcript.agent":
+        // Timestamped + full message, so a "Jordan repeated himself" report
+        // can distinguish a genuine duplicate message from AssemblyAI
+        // (same content arriving twice) from two distinct reply turns that
+        // just happen to be textually similar.
+        console.log(`[TIMING] transcript.agent @ ${Date.now()}:`, JSON.stringify(msg));
         transcriptLog.push({ speaker: "prospect", text: msg.text });
         sendToBrowser({ type: "transcript", speaker: "prospect", text: msg.text, final: true });
         break;

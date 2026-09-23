@@ -799,6 +799,16 @@
     .sc-list li svg { flex-shrink: 0; margin-top: 2px; }
     .sc-list.strengths li svg { color: #0b5; }
     .sc-list.improve li svg { color: #d90; }
+    .sc-download-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      margin-top: 20px; padding: 10px 16px;
+      font-family: inherit; font-size: 0.85rem; font-weight: 700;
+      color: var(--text); background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .sc-download-btn svg { flex-shrink: 0; }
+    .sc-download-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(21,21,43,0.08); border-color: var(--accent); }
     .sc-score-row { display: flex; align-items: center; justify-content: center; gap: 32px; flex-wrap: wrap; margin: 20px 0 24px; padding: 20px; background: var(--fill); border-radius: 14px; }
 
     /* Stat-card grid (replaces the old gauge+radar row) -- one prominent

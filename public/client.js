@@ -277,6 +277,11 @@ let running = false;
 // it's queued and attached to the next prospect line that renders.
 let currentProspectLineEl = null;
 let pendingObjectionTags = [];
+// Mirrors what's rendered into #transcript, kept purely so the download
+// button can build a plain-text file after the call without re-reading the
+// DOM -- populated by appendTranscript, so both a live call and the sample
+// preview fill it the same way.
+let clientTranscriptLog = [];
 
 const OBJECTION_COLORS = {
   price: "#c0293d",
@@ -326,6 +331,7 @@ function hideTypingIndicator() {
 
 function appendTranscript(speaker, text) {
   hideTypingIndicator(); // the real message is here, drop the "typing..." bubble
+  clientTranscriptLog.push({ speaker, text });
   const div = document.createElement("div");
   div.className = `line ${speaker}`;
 
@@ -570,7 +576,75 @@ function renderScorecard(scorecard) {
     scorecardEl.appendChild(buildList("Areas to improve", scorecard.areas_to_improve, ARROW_UP_ICON, "improve"));
   }
 
+  const downloadBtn = document.createElement("button");
+  downloadBtn.type = "button";
+  downloadBtn.className = "sc-download-btn";
+  downloadBtn.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download transcript';
+  downloadBtn.addEventListener("click", () => downloadCallLog(scorecard));
+  scorecardEl.appendChild(downloadBtn);
+
   scorecardEl.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Plain-text export of the just-finished call (transcript + objections +
+// scorecard) so past calls can be reviewed later to write a better pitch --
+// nothing is persisted server-side, so this is the only record that
+// survives after the page is closed.
+function downloadCallLog(scorecard) {
+  const industrySelect = document.getElementById("industrySelect");
+  const scenario = industrySelect ? industrySelect.options[industrySelect.selectedIndex].text : "Unknown";
+  const lines = [];
+
+  lines.push(`Pushback call log -- ${new Date().toLocaleString()}`);
+  lines.push(`Scenario: ${scenario}`);
+  lines.push("");
+  lines.push("=== Transcript ===");
+  for (const entry of clientTranscriptLog) {
+    lines.push(`${entry.speaker === "you" ? "You" : "Jordan"}: ${entry.text}`);
+  }
+
+  const objections = scorecard.objections || [];
+  if (objections.length) {
+    lines.push("");
+    lines.push("=== Objections ===");
+    objections.forEach((obj, i) => {
+      lines.push(`${i + 1}. [${obj.objection_type || "other"}] (${VERDICT_LABEL[obj.verdict] || obj.verdict})`);
+      lines.push(`   Jordan said: "${obj.prospect_line}"`);
+      lines.push(`   Feedback: ${obj.feedback}`);
+      if (obj.better_response) lines.push(`   Try instead: "${obj.better_response}"`);
+      if (obj.next_step) lines.push(`   Next step: ${obj.next_step}`);
+    });
+  }
+
+  if (scorecard.overall_score !== null && scorecard.overall_score !== undefined) {
+    lines.push("");
+    lines.push("=== Scorecard ===");
+    lines.push(`Overall score: ${scorecard.overall_score}/100`);
+    lines.push(scorecard.overall_summary || "");
+  }
+
+  if ((scorecard.strengths || []).length) {
+    lines.push("");
+    lines.push("Strengths:");
+    for (const s of scorecard.strengths) lines.push(`- ${s}`);
+  }
+  if ((scorecard.areas_to_improve || []).length) {
+    lines.push("");
+    lines.push("Areas to improve:");
+    for (const a of scorecard.areas_to_improve) lines.push(`- ${a}`);
+  }
+
+  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  a.download = `pushback-call-${stamp}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function buildList(title, items, iconSvg, modifierClass) {
@@ -873,6 +947,7 @@ async function startCall() {
   transcriptEl.innerHTML = "";
   currentProspectLineEl = null;
   pendingObjectionTags = [];
+  clientTranscriptLog = [];
   typingIndicatorEl = null; // transcriptEl.innerHTML reset already dropped the DOM node
   resetObjectionTracker();
   // Open live captions for the call itself; renderScorecard() collapses
@@ -1007,6 +1082,7 @@ function runPreview() {
   transcriptEl.innerHTML = "";
   currentProspectLineEl = null;
   pendingObjectionTags = [];
+  clientTranscriptLog = [];
   resetObjectionTracker();
 
   for (const line of SAMPLE_TRANSCRIPT) {
