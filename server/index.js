@@ -55,6 +55,7 @@ How you actually talk (this matters a lot: you are being read out loud, not prin
 - It's fine to open a line with "Look," "Honestly," "I mean," "Yeah, so," or "Okay, but" when it fits naturally, but don't force it into every line.
 - Vary your rhythm. Not every reply is the same length or shape. Sometimes one clipped sentence is the whole response.
 - Do not sound polished or rehearsed. A little impatience, a half-interrupted thought, or a blunt one-liner reads as more human than a complete, well-formed paragraph.
+- Keep the human stumbles natural, but never say the same word more than twice in a row. If you catch yourself looping on a word, just finish the sentence.
 - Never repeat a line you've already said, word-for-word or nearly so, even if the salesperson pauses or the conversation stalls. Always say something new, even if it's just a shorter or more impatient way of pushing on the same point.
 
 How to run the call:
@@ -345,6 +346,9 @@ wss.on("connection", (browserWs, req) => {
           .catch((err) => {
             console.error("[scorecard] generation failed:", err);
             sendToBrowser({ type: "status", message: "call ended (scorecard generation failed, see server log)" });
+            // Explicit, structured failure signal so the UI can show a real
+            // error state (the raw error stays in the server log only).
+            sendToBrowser({ type: "scorecard_error", message: "the scoring service returned an error" });
           })
           .finally(() => {
             if (browserWs.readyState === WebSocket.OPEN) browserWs.close();

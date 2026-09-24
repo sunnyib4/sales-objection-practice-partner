@@ -50,8 +50,16 @@ audio arrives already at 24kHz.
 - `server/test-scorecard.js` -- feeds a canned sample transcript into
   `scorecard.js` directly, for testing scorecard quality without doing a
   live call.
-- `public/index.html`, `public/client.js` -- the frontend: mic capture,
-  playback scheduling, transcript + scorecard rendering.
+- `public/index.html` -- the landing page and the call screen's markup and
+  styles.
+- `public/client.js` -- landing page behavior plus the audio and WebSocket
+  plumbing: mic capture, playback scheduling, and reporting call events.
+- `public/workspace.js` -- the call screen itself: live transcript, objection
+  tracker, scorecard, and past calls. Finished calls (transcript and
+  scorecard) are saved in the browser's localStorage only; there is no
+  server-side storage.
+- `public/mic-processor.js` -- AudioWorklet that captures mic audio off the
+  main thread.
 
 ## Local setup
 
